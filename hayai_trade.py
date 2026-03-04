@@ -8,16 +8,18 @@ import hayai_util as util
 import hayai_bo
 
 
-def add_position_size(df:pd.DataFrame,client:TradingClient)->pd.DataFrame:
+def add_position_size(df:pd.DataFrame)->pd.DataFrame:
     # calculate the part of capital that is going to invest
     rp = util.context['risk_percentage']
+    client = util.get_trading_client()
     account = client.get_account()
     portfolio_value = float(account.portfolio_value)
     # calculate the position size in USD for each asset
     df['position_size'] = (rp * portfolio_value) * df['position_perc']
     return df
 
-def place_order_buy(tc:TradingClient,symbol:str,qty:float):
+def place_order_buy(symbol:str,qty:float):
+    tc = util.get_trading_client()
     assert qty > 0, "Quantity must be positive for buy orders."
     if qty < 1:
         print(f"Quantity {qty} is less than 1, skipping order for {symbol}.")
@@ -31,7 +33,8 @@ def place_order_buy(tc:TradingClient,symbol:str,qty:float):
     # Market order
     market_order = tc.submit_order(order_data=market_order_data)
 
-def place_order_sell(tc:TradingClient,symbol:str,qty:float):
+def place_order_sell(symbol:str,qty:float):
+    tc = util.get_trading_client()
     assert qty > 0, "Quantity must be positive for sell orders."
     if qty < 1:
         print(f"Quantity {qty} is less than 1, skipping order for {symbol}.")
@@ -45,7 +48,8 @@ def place_order_sell(tc:TradingClient,symbol:str,qty:float):
     # Market order
     market_order = tc.submit_order(order_data=market_order_data)
 
-def place_order_short(tc:TradingClient,symbol:str,qty:float):
+def place_order_short(symbol:str,qty:float):
+    tc = util.get_trading_client()
     assert qty > 0, "Quantity must be positive for short orders."
     qty = int(qty)
     if qty <= 1:
@@ -61,17 +65,10 @@ def place_order_short(tc:TradingClient,symbol:str,qty:float):
     market_order = tc.submit_order(order_data=market_order_data)
 
 
-def get_actual(client:TradingClient)->pd.DataFrame:
-    # Get the actual
-    portfolio = client.get_all_positions()
-    df = pd.DataFrame([position.__dict__ for position in portfolio])
-    df['qty'] = df['qty'].astype(float)
-    df = df[['symbol', 'qty', 'side']]
-    df.columns = ['symbol', 'qty_old', 'side_old']
-    return df
 
-def build_to_be(client:TradingClient)->pd.DataFrame:
+def build_to_be()->pd.DataFrame:
     """ Set the to be"""
+    client = util.get_trading_client()
     filename_in = os.path.join(util.context['portfolio_dir'], "positions.parquet")
     df = pd.read_parquet(filename_in)
     df = hayai_bo.add_price(df)
@@ -89,6 +86,8 @@ def execution():
     df = pd.merge(df_to_be, df_actual, on='symbol', how='outer')
     df = df[['symbol', 'qty_old', 'qty_new']].fillna(0)
     df['qty_diff'] = df['qty_new'] - df['qty_old']
+    filename_out = os.path.join(util.context['portfolio_dir'], "execution.parquet")
+    df.to_parquet(filename_out, index=False)
 
     for _, row in df.iterrows():
         symbol = row['symbol']

@@ -6,6 +6,10 @@ prepares the necessary information for trading activities."""
 import configparser
 import os
 import pandas as pd
+from alpaca.trading.client import TradingClient
+from alpaca.data.historical import StockHistoricalDataClient
+
+
 def create_context(portfolio_id:str)->dict[str, any]:
     global context
     config = configparser.ConfigParser()
@@ -76,3 +80,15 @@ def save_normalization_params(label_min:float, label_max:float)->bool:
         conf_portfolio.write(configfile)
 
     return True
+
+def get_trading_client()->TradingClient:
+    apikey = context['api_key']
+    secret_key = context['secret_key']
+    trading_client = TradingClient(api_key=apikey,secret_key=secret_key,paper=True)
+    return trading_client
+
+def get_stock_historical_data_client()->StockHistoricalDataClient:
+    apikey = context['api_key']
+    secret_key = context['secret_key']
+    client = StockHistoricalDataClient(api_key=apikey,secret_key=secret_key)
+    return client
