@@ -6,9 +6,11 @@ import hayai_util as util
 import hayai_dao as dao
 import hayai_trade as trade
 
-
+import logging_config
+logger = logging_config.create_logger(__name__)
 
 def add_features(df:pd.DataFrame)->pd.DataFrame:
+    """ Add features to the dataframe, and return it. """
     trd = util.context['target_return_days']
     # df['timestamp'] = pd.to_datetime(df['timestamp'])
 
@@ -98,7 +100,7 @@ def add_features(df:pd.DataFrame)->pd.DataFrame:
     return df
 
 def cross_sectional_momentum_rank(df):
-
+    """ Define cross-sectional momentum rank feature. """
     df = df.copy()
 
     # momentum 20 giorni
@@ -112,42 +114,35 @@ def cross_sectional_momentum_rank(df):
     return df
 
 def volume_shock_feature(df):
-
+    """ Define volume shock feature as the ratio between current volume and 20-day moving average of volume. """
     df = df.copy()
-
     vol_ma = df.groupby('symbol')["volume"].transform(
         lambda x: x.rolling(20).mean()
     )
-
     df["volume_shock"] = df["volume"] / vol_ma
-
     return df
 
 def volatility_regime(df):
-
+    """ Define volatility regime feature as the ratio between 10-day and 60-day rolling volatility. """
     df = df.copy()
-
     log_return = np.log(df["close"] / df["close"].shift(1))
-
     vol_10 = log_return.groupby(df['symbol']).transform(
         lambda x: x.rolling(10).std()
     )
-
     vol_60 = log_return.groupby(df['symbol']).transform(
         lambda x: x.rolling(60).std()
     )
-
     df["vol_regime"] = vol_10 / vol_60
-
     return df 
 
 def add_features_portfolio()->bool:
+    """ Add features to the portfolio, and save to parquet. """
     count = len(util.context['symbols'])
     dfs = []
     for i, symbol in enumerate(util.context['symbols']):
         filename = os.path.join(util.context['hist_dir'], f"{symbol}.parquet")
         if os.path.exists(filename):
-            print(f"Processing {symbol} ({i+1}/{count})...")
+            logger.info(f"Processing {symbol} ({i+1}/{count})...")
             df = pd.read_parquet(filename)
             df = add_features(df)
             dfs.append(df)
@@ -163,7 +158,9 @@ def add_features_portfolio()->bool:
     return True
 
 def apply_prediction()->pd.DataFrame:
+    """ Apply the model to the portfolio, and save predictions to parquet. """
     import keras
+    logger.info("Applying model to the portfolio...")
     filename = os.path.join(util.context['portfolio_dir'], "features.parquet")
     filename_model = os.path.join(util.context['portfolio_dir'], "model.keras")
     filename_out = os.path.join(util.context['portfolio_dir'], "predictions.parquet")
@@ -185,9 +182,12 @@ def apply_prediction()->pd.DataFrame:
     df['symbol'] = df_asset['symbol']
     df['date'] = df_asset['date']
     df.to_parquet(filename_out, index=False)
+    logger.info("Predictions saved to parquet, row count: " + str(len(df)))
     return df
 
 def define_weight():
+    """ Define weights for the portfolio, based on predictions and volatility. """
+    logger.info("Defining weights for the portfolio...")
     filename_in = os.path.join(util.context['portfolio_dir'], "predictions.parquet")
     filename_out = os.path.join(util.context['portfolio_dir'], "weights.parquet")
     df = pd.read_parquet(filename_in)
@@ -201,11 +201,13 @@ def define_weight():
     weight_sum = df['weight'].abs().sum()
     df['weight'] = df['weight'] / weight_sum
     assert(df['weight'].abs().sum() > 0.99 and df['weight'].abs().sum() < 1.01)
+    logger.info("Weights defined, row count: " + str(len(df)))
     df.to_parquet(filename_out, index=False)
     return df
 
 def build_new_position():
     """ Calculate positions, based on weights. """
+    logger.info("Building new positions for the portfolio...")
     filename_in = os.path.join(util.context['portfolio_dir'], "weights.parquet")
     filename_out = os.path.join(util.context['portfolio_dir'], "position_new.parquet")
     df_new = pd.read_parquet(filename_in)
@@ -214,10 +216,12 @@ def build_new_position():
     df_old = dao.get_actual_position()
     df_old = df_old[['symbol', 'qty_old']]
     df = pd.merge(df_new, df_old, on='symbol', how='outer').fillna(0)
+    logger.info(f"New position built with {len(df)} assets")
     df.to_parquet(filename_out, index=False)
 
 def define_new_quantity():
     """ Calculate quantity for the new position. """
+    logger.info("Defining new quantities for the portfolio...")
     filename_in = os.path.join(util.context['portfolio_dir'], "position_new.parquet")
     filename_out = os.path.join(util.context['portfolio_dir'], "position_new_qty.parquet")
     df = pd.read_parquet(filename_in)
@@ -232,11 +236,12 @@ def define_new_quantity():
     # remove rows where qty_diff is less than 20% in absolute value
     df = df[df['qty_diff_perc'].abs() > 0.2]
     df.to_parquet(filename_out, index=False)
+    logger.info("New quantities defined, row count: %d", len(df))
 
 
 def execution():
-    apikey = util.context['api_key']
-    secret_key = util.context['secret_key']
+    """ Execute the trades to rebalance the portfolio. """
+    logger.info("Executing trades for the portfolio %s",util.context['portfolio_name'])
     client = util.get_trading_client()
     filename_in = os.path.join(util.context['portfolio_dir'], "position_new_qty.parquet")
     df = pd.read_parquet(filename_in)
@@ -260,9 +265,9 @@ def execution():
         elif qty_old > 0:
             if qty_new > 0 and qty_diff > 0:
                 trade.place_order_buy(client, symbol, qty_diff)
-            if qty_new > 0 and qty_diff < 0:
+            elif qty_new > 0 and qty_diff < 0:
                 trade.place_order_sell(client, symbol, abs(qty_diff))
-            if qty_new < 0:
+            elif qty_new < 0:
                 client.close_position(symbol)
                 trade.place_order_short(client, symbol, abs(qty_new))
 
@@ -270,9 +275,9 @@ def execution():
         elif qty_old < 0:
             if qty_new < 0 and qty_diff > 0:
                 trade.place_order_buy(client, symbol, abs(qty_diff))
-            if qty_new < 0 and qty_diff < 0:
+            elif qty_new < 0 and qty_diff < 0:
                 trade.place_order_short(client, symbol, abs(qty_diff))
-            if qty_new > 0:
+            elif qty_new > 0:
                 client.close_position(symbol)
                 trade.place_order_buy(client, symbol, qty_new)
 

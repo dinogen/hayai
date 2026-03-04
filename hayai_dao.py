@@ -7,8 +7,10 @@ import pandas as pd
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockLatestTradeRequest, StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
-from alpaca.trading.client import TradingClient
 import hayai_util as util
+
+import logging_config
+logger = logging_config.create_logger(__name__)
 
 def fetch_quotes(symbol:str,client:StockHistoricalDataClient)->pd.DataFrame:
     """fetch historical quotes for a given symbol, with """
