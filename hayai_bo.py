@@ -3,7 +3,8 @@ from datetime import date,datetime
 import pandas as pd
 import numpy as np
 import hayai_util as util
-import keras
+import hayai_dao as dao
+import hayai_trade as trade
 
 
 
@@ -162,8 +163,10 @@ def add_features_portfolio()->bool:
     return True
 
 def apply_prediction()->pd.DataFrame:
+    import keras
     filename = os.path.join(util.context['portfolio_dir'], "features.parquet")
     filename_model = os.path.join(util.context['portfolio_dir'], "model.keras")
+    filename_out = os.path.join(util.context['portfolio_dir'], "predictions.parquet")
     model = keras.saving.load_model(filename_model)
     df = pd.read_parquet(filename)
     df = df.reset_index(drop=True)
@@ -178,45 +181,98 @@ def apply_prediction()->pd.DataFrame:
     label_min = util.context['label_min']
     label_max = util.context['label_max']
     df['prediction'] = df['prediction'] * (label_max - label_min) + label_min
-    df['weight'] = df['prediction'].clip(lower=-5, upper=5) / df['vol_20']
     # rimetto i nomi degli asset e le date
     df['symbol'] = df_asset['symbol']
     df['date'] = df_asset['date']
-    filename_out = os.path.join(util.context['portfolio_dir'], "predictions.parquet")
     df.to_parquet(filename_out, index=False)
     return df
 
-def add_price(df:pd.DataFrame)->pd.DataFrame:
-    df = df.copy()
-    df['close'] = 0.0
-    for asset in df['symbol']:
-        filename = os.path.join(util.context['hist_dir'], f"{asset}.parquet")
-        df_price = pd.read_parquet(filename)
-        df_price = df_price[df_price['timestamp'] == df_price['timestamp'].max()]
-        if not df_price.empty:
-            price = df_price['close'].values[0]
-            df.loc[df['symbol'] == asset, 'close'] = price
-        else:
-            print(f"Warning: No price data for {asset} on {df['date'].max()}")
-    return df
-
-def positions_construction():
-    """ Calculate positions, percentage relative to the total portfolio, based on the predictions and the volatility of each asset. """
-    filename = os.path.join(util.context['portfolio_dir'], "predictions.parquet")
-    df = pd.read_parquet(filename)
+def define_weight():
+    filename_in = os.path.join(util.context['portfolio_dir'], "predictions.parquet")
+    filename_out = os.path.join(util.context['portfolio_dir'], "weights.parquet")
+    df = pd.read_parquet(filename_in)
+    df = df[['symbol','prediction','vol_20']]
+    df['weight'] = df['prediction'].clip(lower=-5, upper=5) / df['vol_20']
+    # ordina per peso decrescente
     df = df.sort_values(by='weight', ascending=False)
     df_long = df[df['weight'] > 0].head(util.context['n_long'])
-    df_long['side'] = 'long'
     df_short = df[df['weight'] < 0].tail(util.context['n_short'])
-    df_short['side'] = 'short'
     df = pd.concat([df_long, df_short])
-    sum_weights = df['weight'].abs().sum()
-    df['position_perc'] = df['weight'].abs() / sum_weights
-    print("position total sum:", df['position_perc'].sum())
-    assert(df['position_perc'].sum() > 0.99 and df['position_perc'].sum() < 1.01)
-    filename_out = os.path.join(util.context['portfolio_dir'], "positions.parquet")
-    df[['symbol','date','side','position_perc']].to_parquet(filename_out, index=False)
+    weight_sum = df['weight'].abs().sum()
+    df['weight'] = df['weight'] / weight_sum
+    assert(df['weight'].abs().sum() > 0.99 and df['weight'].abs().sum() < 1.01)
+    df.to_parquet(filename_out, index=False)
     return df
 
+def build_new_position():
+    """ Calculate positions, based on weights. """
+    filename_in = os.path.join(util.context['portfolio_dir'], "weights.parquet")
+    filename_out = os.path.join(util.context['portfolio_dir'], "position_new.parquet")
+    df_new = pd.read_parquet(filename_in)
+    df_new = df_new[['symbol', 'weight']]
+    df_new.columns = ['symbol', 'weight_new']
+    df_old = dao.get_actual_position()
+    df_old = df_old[['symbol', 'qty_old']]
+    df = pd.merge(df_new, df_old, on='symbol', how='outer').fillna(0)
+    df.to_parquet(filename_out, index=False)
 
-    
+def define_new_quantity():
+    """ Calculate quantity for the new position. """
+    filename_in = os.path.join(util.context['portfolio_dir'], "position_new.parquet")
+    filename_out = os.path.join(util.context['portfolio_dir'], "position_new_qty.parquet")
+    df = pd.read_parquet(filename_in)
+    df_price = dao.get_latest_trade_price(df['symbol'].tolist())
+    df = pd.merge(df, df_price, on='symbol', how='outer').fillna(0)
+    buying_power = float(dao.get_account_info().buying_power)
+    capital = buying_power * util.context['risk_percentage']
+    df['value_new'] = df['weight_new'] * capital
+    df['qty_new'] = (df['value_new'] / df['price']).round()
+    df['qty_diff'] = df['qty_new'] - df['qty_old']
+    df['qty_diff_perc'] = df['qty_diff'] / df['qty_old'].replace(0, 1)
+    # remove rows where qty_diff is less than 20% in absolute value
+    df = df[df['qty_diff_perc'].abs() > 0.2]
+    df.to_parquet(filename_out, index=False)
+
+
+def execution():
+    apikey = util.context['api_key']
+    secret_key = util.context['secret_key']
+    client = util.get_trading_client()
+    filename_in = os.path.join(util.context['portfolio_dir'], "position_new_qty.parquet")
+    df = pd.read_parquet(filename_in)
+    df = df[['symbol', 'qty_old', 'qty_new','qty_diff']]
+
+    for _, row in df.iterrows():
+        symbol = row['symbol']
+        qty_old = row['qty_old']
+        qty_new = row['qty_new']
+        qty_diff = row['qty_diff']
+
+        # "zero" handling
+        if qty_new == 0:
+            client.close_position(symbol)
+        elif qty_old == 0 and qty_new > 0:
+            trade.place_order_buy(client, symbol, qty_new)
+        elif qty_old == 0 and qty_new < 0:
+            trade.place_order_short(client, symbol, abs(qty_new))
+
+        # qty old > 0 long position existing
+        elif qty_old > 0:
+            if qty_new > 0 and qty_diff > 0:
+                trade.place_order_buy(client, symbol, qty_diff)
+            if qty_new > 0 and qty_diff < 0:
+                trade.place_order_sell(client, symbol, abs(qty_diff))
+            if qty_new < 0:
+                client.close_position(symbol)
+                trade.place_order_short(client, symbol, abs(qty_new))
+
+        # qty old < 0 short position existing
+        elif qty_old < 0:
+            if qty_new < 0 and qty_diff > 0:
+                trade.place_order_buy(client, symbol, abs(qty_diff))
+            if qty_new < 0 and qty_diff < 0:
+                trade.place_order_short(client, symbol, abs(qty_diff))
+            if qty_new > 0:
+                client.close_position(symbol)
+                trade.place_order_buy(client, symbol, qty_new)
+
