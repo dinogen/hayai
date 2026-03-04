@@ -67,14 +67,14 @@ Scorre `execution.parquet` e genera gli ordini secondo la seguente logica:
 
 | `qty_new` | `qty_diff` | Azione | Esempio |
 |---|---|---|---|
-| `> 0` | `> 0` | **BUY** `qty_diff` | +100 → +150 ⇒ compro 50 |
-| `> 0` | `< 0` | **SELL** `round(qty_diff)` | +150 → +100 ⇒ vendo 50 |
+| `> 0` | `> 0` | **BUY** `qty_diff` | +100 - +150 ⇒ compro 50 |
+| `> 0` | `< 0` | **SELL** `round(qty_diff)` | +150 - +100 ⇒ vendo 50 |
 | `< 0` | — | Chiudi posizione, **SELL** `round(qty_new)` | Inversione long → short |
 
 ### Posizione short esistente (`qty_old < 0`)
 
 | `qty_new` | `qty_diff` | Azione | Esempio |
 |---|---|---|---|
-| `< 0` | `> 0` | **BUY** `qty_diff` | −150 → −100 ⇒ compro 50 |
-| `< 0` | `< 0` | **SELL** `round(qty_diff)` | −100 → −150 ⇒ vendo 50 |
+| `< 0` | `> 0` | **BUY** `qty_diff` | −150 - −100 ⇒ compro 50 |
+| `< 0` | `< 0` | **SELL** `round(qty_diff)` | −100 - −150 ⇒ vendo 50 |
 | `> 0` | — | Chiudi posizione, **BUY** `qty_new` | Inversione short → long |

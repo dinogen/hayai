@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import hayai_util as util
 import hayai_dao as dao
+import hayai_trade as trade
 
 
 
@@ -232,4 +233,46 @@ def define_new_quantity():
     df = df[df['qty_diff_perc'].abs() > 0.2]
     df.to_parquet(filename_out, index=False)
 
-    
+
+def execution():
+    apikey = util.context['api_key']
+    secret_key = util.context['secret_key']
+    client = util.get_trading_client()
+    filename_in = os.path.join(util.context['portfolio_dir'], "position_new_qty.parquet")
+    df = pd.read_parquet(filename_in)
+    df = df[['symbol', 'qty_old', 'qty_new','qty_diff']]
+
+    for _, row in df.iterrows():
+        symbol = row['symbol']
+        qty_old = row['qty_old']
+        qty_new = row['qty_new']
+        qty_diff = row['qty_diff']
+
+        # "zero" handling
+        if qty_new == 0:
+            client.close_position(symbol)
+        elif qty_old == 0 and qty_new > 0:
+            trade.place_order_buy(client, symbol, qty_new)
+        elif qty_old == 0 and qty_new < 0:
+            trade.place_order_short(client, symbol, abs(qty_new))
+
+        # qty old > 0 long position existing
+        elif qty_old > 0:
+            if qty_new > 0 and qty_diff > 0:
+                trade.place_order_buy(client, symbol, qty_diff)
+            if qty_new > 0 and qty_diff < 0:
+                trade.place_order_sell(client, symbol, abs(qty_diff))
+            if qty_new < 0:
+                client.close_position(symbol)
+                trade.place_order_short(client, symbol, abs(qty_new))
+
+        # qty old < 0 short position existing
+        elif qty_old < 0:
+            if qty_new < 0 and qty_diff > 0:
+                trade.place_order_buy(client, symbol, abs(qty_diff))
+            if qty_new < 0 and qty_diff < 0:
+                trade.place_order_short(client, symbol, abs(qty_diff))
+            if qty_new > 0:
+                client.close_position(symbol)
+                trade.place_order_buy(client, symbol, qty_new)
+
