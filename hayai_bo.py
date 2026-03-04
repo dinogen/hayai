@@ -252,6 +252,7 @@ def execution():
         qty_old = row['qty_old']
         qty_new = row['qty_new']
         qty_diff = row['qty_diff']
+        logger.info(f"Processing {symbol}: qty_old={qty_old}, qty_new={qty_new}, qty_diff={qty_diff}")
 
         # "zero" handling
         if qty_new == 0:

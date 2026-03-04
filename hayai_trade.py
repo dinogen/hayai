@@ -9,6 +9,7 @@ logger = logging_config.create_logger(__name__)
 
 def place_order_buy(tc:TradingClient,symbol:str,qty:float):
     assert qty > 0, "Quantity must be positive for buy orders."
+    logger.info(f"Placing buy order for {symbol} with quantity {qty}")
     market_order_data = MarketOrderRequest(
                         symbol=symbol,
                         qty=qty,
@@ -21,6 +22,7 @@ def place_order_buy(tc:TradingClient,symbol:str,qty:float):
 def place_order_sell(tc:TradingClient,symbol:str,qty:float):
     assert qty > 0, "Quantity must be positive for sell orders."
     qty = round(qty)
+    logger.info(f"Placing sell order for {symbol} with quantity {qty}")
     if qty < 1:
         print(f"Quantity {qty} is less than 1, skipping order for {symbol}.")
         return
@@ -36,6 +38,7 @@ def place_order_sell(tc:TradingClient,symbol:str,qty:float):
 def place_order_short(tc:TradingClient,symbol:str,qty:float):
     assert qty > 0, "Quantity must be positive for short orders."
     qty = round(qty)
+    logger.info(f"Placing short order for {symbol} with quantity {qty}")
     market_order_data = MarketOrderRequest(
                         symbol=symbol,
                         qty=qty,
