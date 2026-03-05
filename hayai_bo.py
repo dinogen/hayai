@@ -9,25 +9,32 @@ import hayai_trade as trade
 import logging_config
 logger = logging_config.create_logger(__name__)
 
+def add_time_features(df:pd.DataFrame)->pd.DataFrame:
+    """ Add time-related features to the dataframe, and return it. """
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df['date'] = df['timestamp'].dt.date
+    df = df.set_index('date')
+    df['day_of_week'] = df['timestamp'].dt.dayofweek
+    df['time_since_high'] = 0 # set initial value to 0, then update it iterating over the dataframe
+    max_close = -1
+    days_since_high = 0
+    for i,row in df.iterrows():
+        if row['close'] > max_close:
+            max_close = row['close']
+            days_since_high = 0
+            # the value is already 0
+        else:
+            days_since_high += 1
+            df.loc[i,'time_since_high'] = days_since_high
+    df.drop(columns=['timestamp',], inplace=True)
+    df = df.reset_index() # set date as column again
+    return df
+
+
 def add_features(df:pd.DataFrame)->pd.DataFrame:
     """ Add features to the dataframe, and return it. """
     trd = util.context['target_return_days']
-    # df['timestamp'] = pd.to_datetime(df['timestamp'])
-
-    # #features about time
-    df['date'] = df['timestamp'].dt.date
-    df.drop(columns=['timestamp'], inplace=True)
-    # df = df.set_index('date')
-    # df['day_of_week'] = df['timestamp'].dt.dayofweek
-    # df['index_of_max'] = date.today()
-    # for i,row in df.iterrows():
-    #     df.loc[i,'index_of_max'] = df['close'][:i].idxmax()
-    # df['timedelta_since_high'] = (df.index - df['index_of_max'])
-    # df['time_since_high'] = df.apply(lambda x: x['timedelta_since_high'].days, axis=1)
-    # df.drop(columns=['index_of_max','timedelta_since_high'], inplace=True)
-
     df = df.copy()
-
     # -------------------------
     # RETURNS
     # -------------------------
@@ -144,6 +151,7 @@ def add_features_portfolio()->bool:
         if os.path.exists(filename):
             logger.info(f"Processing {symbol} ({i+1}/{count})...")
             df = pd.read_parquet(filename)
+            df = add_time_features(df)
             df = add_features(df)
             dfs.append(df)
     df = pd.concat(dfs, ignore_index=True)
@@ -151,7 +159,7 @@ def add_features_portfolio()->bool:
     df = volume_shock_feature(df)
     df = volatility_regime(df)
     filename = os.path.join(util.context['portfolio_dir'], "features.parquet")
-    df = df[['symbol','date','log_return','mom_5','mom_10','mom_rank','vol_10',
+    df = df[['symbol','date','day_of_week','time_since_high','close','log_return','mom_5','mom_10','mom_rank','vol_10',
                 'vol_20','vol_ratio','zscore_20','trend_50','volume_zscore',
                 'volume_shock','vol_regime','target']]
     df.to_parquet(filename, index=False)

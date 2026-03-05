@@ -29,8 +29,6 @@ def fetch_quotes_portfolio(days:int)->bool:
         print("market open, skipping data fetch")
         return False
 
-    apikey = util.context['api_key']
-    secret_key = util.context['secret_key']
     client:StockHistoricalDataClient = util.get_stock_historical_data_client()
 
     count = len(util.context['symbols'])
