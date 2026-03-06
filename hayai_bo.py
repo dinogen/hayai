@@ -241,7 +241,7 @@ def define_new_quantity():
 
 def execution():
     """ Execute the trades to rebalance the portfolio. """
-    logger.info("Executing trades for the portfolio %s",util.context['portfolio_name'])
+    logger.info("Executing trades for the portfolio %s",util.context['portfolio_id'])
     client = util.get_trading_client()
     filename_in = os.path.join(util.context['portfolio_dir'], "position_new_qty.parquet")
     df = pd.read_parquet(filename_in)

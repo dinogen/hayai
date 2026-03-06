@@ -2,6 +2,7 @@ import pandas as pd
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
+from alpaca.common.exceptions import APIError
 import hayai_util as util
 
 import logging_config
@@ -17,7 +18,10 @@ def place_order_buy(tc:TradingClient,symbol:str,qty:float):
                         time_in_force=TimeInForce.DAY)
 
     # Market order
-    market_order = tc.submit_order(order_data=market_order_data)
+    try: 
+        market_order = tc.submit_order(order_data=market_order_data)
+    except APIError as e:
+        logger.error(f"Error placing buy order for {symbol}: {e}")
 
 def place_order_sell(tc:TradingClient,symbol:str,qty:float):
     assert qty > 0, "Quantity must be positive for sell orders."
@@ -33,7 +37,10 @@ def place_order_sell(tc:TradingClient,symbol:str,qty:float):
                         time_in_force=TimeInForce.DAY)
 
     # Market order
-    market_order = tc.submit_order(order_data=market_order_data)
+    try:
+        market_order = tc.submit_order(order_data=market_order_data)
+    except APIError as e:
+        logger.error(f"Error placing sell order for {symbol}: {e}")
 
 def place_order_short(tc:TradingClient,symbol:str,qty:float):
     assert qty > 0, "Quantity must be positive for short orders."
@@ -46,5 +53,8 @@ def place_order_short(tc:TradingClient,symbol:str,qty:float):
                         time_in_force=TimeInForce.DAY)
 
     # Market order
-    market_order = tc.submit_order(order_data=market_order_data)
+    try:
+        market_order = tc.submit_order(order_data=market_order_data)
+    except APIError as e:
+        logger.error(f"Error placing short order for {symbol}: {e}")
 
