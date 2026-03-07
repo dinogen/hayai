@@ -23,11 +23,11 @@ def fetch_quotes(symbol:str,client:StockHistoricalDataClient)->pd.DataFrame:
     return result.df
 
 def fetch_quotes_portfolio(days:int)->bool:
-    # if it is from 3:30 PM to 10:00 PM, skip
-    now = datetime.now().time()
-    if now >= datetime.strptime("15:30:00", "%H:%M:%S").time() and now <= datetime.strptime("22:00:00", "%H:%M:%S").time():
-        print("market open, skipping data fetch")
-        return False
+    # # if it is from 3:30 PM to 10:00 PM, skip
+    # now = datetime.now().time()
+    # if now >= datetime.strptime("15:30:00", "%H:%M:%S").time() and now <= datetime.strptime("22:00:00", "%H:%M:%S").time():
+    #     print("market open, skipping data fetch")
+    #     return False
 
     apikey = util.context['api_key']
     secret_key = util.context['secret_key']

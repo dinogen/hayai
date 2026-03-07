@@ -1,5 +1,8 @@
+""" This module contains the main logic for the backtesting
+and trading of the portfolio. It includes functions to add features to the data,
+apply the model, define weights, build new positions,
+define new quantities, and execute trades. """
 import os
-from datetime import date,datetime
 import pandas as pd
 import numpy as np
 import hayai_util as util
@@ -88,14 +91,14 @@ def add_features(df:pd.DataFrame)->pd.DataFrame:
 
     df["target"] = df["log_return"].shift(-trd) / df["vol_20"]
     df.dropna(subset=["log_return",
-                      "mom_5", 
-                      "mom_10", 
-                      "mom_20", 
-                      "vol_10", 
+                      "mom_5",
+                      "mom_10",
+                      "mom_20",
+                      "vol_10",
                       "vol_20",
-                      "vol_ratio", 
-                      "zscore_20", 
-                      "trend_50", 
+                      "vol_ratio",
+                      "zscore_20",
+                      "trend_50",
                       "volume_zscore", "mom_vol_adj"], inplace=True)
     return df
 
@@ -114,7 +117,8 @@ def cross_sectional_momentum_rank(df):
     return df
 
 def volume_shock_feature(df):
-    """ Define volume shock feature as the ratio between current volume and 20-day moving average of volume. """
+    """ Define volume shock feature as the ratio between 
+    current volume and 20-day moving average of volume. """
     df = df.copy()
     vol_ma = df.groupby('symbol')["volume"].transform(
         lambda x: x.rolling(20).mean()
@@ -123,7 +127,8 @@ def volume_shock_feature(df):
     return df
 
 def volatility_regime(df):
-    """ Define volatility regime feature as the ratio between 10-day and 60-day rolling volatility. """
+    """ Define volatility regime feature as the ratio 
+    between 10-day and 60-day rolling volatility. """
     df = df.copy()
     log_return = np.log(df["close"] / df["close"].shift(1))
     vol_10 = log_return.groupby(df['symbol']).transform(
@@ -133,7 +138,7 @@ def volatility_regime(df):
         lambda x: x.rolling(60).std()
     )
     df["vol_regime"] = vol_10 / vol_60
-    return df 
+    return df
 
 def add_features_portfolio()->bool:
     """ Add features to the portfolio, and save to parquet. """
@@ -142,7 +147,7 @@ def add_features_portfolio()->bool:
     for i, symbol in enumerate(util.context['symbols']):
         filename = os.path.join(util.context['hist_dir'], f"{symbol}.parquet")
         if os.path.exists(filename):
-            logger.info(f"Processing {symbol} ({i+1}/{count})...")
+            logger.info("Processing %s (%d/%d)...", symbol, i+1, count)
             df = pd.read_parquet(filename)
             df = add_features(df)
             dfs.append(df)
@@ -182,7 +187,7 @@ def apply_prediction()->pd.DataFrame:
     df['symbol'] = df_asset['symbol']
     df['date'] = df_asset['date']
     df.to_parquet(filename_out, index=False)
-    logger.info("Predictions saved to parquet, row count: " + str(len(df)))
+    logger.info("Predictions saved to parquet, row count: %d", len(df))
     return df
 
 def define_weight():
@@ -201,7 +206,7 @@ def define_weight():
     weight_sum = df['weight'].abs().sum()
     df['weight'] = df['weight'] / weight_sum
     assert(df['weight'].abs().sum() > 0.99 and df['weight'].abs().sum() < 1.01)
-    logger.info("Weights defined, row count: " + str(len(df)))
+    logger.info("Weights defined, row count: %d", len(df))
     df.to_parquet(filename_out, index=False)
     return df
 
@@ -216,7 +221,7 @@ def build_new_position():
     df_old = dao.get_actual_position()
     df_old = df_old[['symbol', 'qty_old']]
     df = pd.merge(df_new, df_old, on='symbol', how='outer').fillna(0)
-    logger.info(f"New position built with {len(df)} assets")
+    logger.info("New position built with %d assets", len(df))
     df.to_parquet(filename_out, index=False)
 
 def define_new_quantity():
@@ -232,16 +237,17 @@ def define_new_quantity():
     df['value_new'] = df['weight_new'] * capital
     df['qty_new'] = (df['value_new'] / df['price']).round()
     df['qty_diff'] = df['qty_new'] - df['qty_old']
-    df['qty_diff_perc'] = df['qty_diff'] / df['qty_old'].replace(0, 1)
-    # remove rows where qty_diff is less than 20% in absolute value
-    df = df[df['qty_diff_perc'].abs() > 0.2]
+    denominator = np.where(df['qty_old'] != 0, df['qty_old'], df['qty_new'])
+    df['qty_diff_perc'] = df['qty_diff'] / denominator
+    # remove rows where qty_diff is less than the minimum percentage in absolute value
+    df = df[df['qty_diff_perc'].abs() > util.context['qty_diff_perc_min']]
     df.to_parquet(filename_out, index=False)
     logger.info("New quantities defined, row count: %d", len(df))
 
 
 def execution():
     """ Execute the trades to rebalance the portfolio. """
-    logger.info("Executing trades for the portfolio %s",util.context['portfolio_id'])
+    logger.info("Executing trades for the portfolio %s", util.context['portfolio_id'])
     client = util.get_trading_client()
     filename_in = os.path.join(util.context['portfolio_dir'], "position_new_qty.parquet")
     df = pd.read_parquet(filename_in)
@@ -252,7 +258,8 @@ def execution():
         qty_old = row['qty_old']
         qty_new = row['qty_new']
         qty_diff = row['qty_diff']
-        logger.info(f"Processing {symbol}: qty_old={qty_old}, qty_new={qty_new}, qty_diff={qty_diff}")
+        logger.info("Processing %s: qty_old=%s, qty_new=%s, qty_diff=%s",
+                    symbol, qty_old, qty_new, qty_diff)
 
         # "zero" handling
         if qty_new == 0:
@@ -281,4 +288,3 @@ def execution():
             elif qty_new > 0:
                 client.close_position(symbol)
                 trade.place_order_buy(client, symbol, qty_new)
-
