@@ -30,8 +30,17 @@ def add_time_features(df:pd.DataFrame)->pd.DataFrame:
     df = df.reset_index() # set date as column again
     return df
 
+def add_forex_features(df:pd.DataFrame)->pd.DataFrame:
+    forex_df = dao.get_forex()
+    df = df.merge(forex_df, left_on='date', right_on='date', how='left')
+    return df
 
-def add_features(df:pd.DataFrame)->pd.DataFrame:
+def add_index_features(df:pd.DataFrame)->pd.DataFrame:
+    index_df = dao.get_index()
+    df = df.merge(index_df, left_on='date', right_on='date', how='left')
+    return df
+
+def add_financial_features(df:pd.DataFrame)->pd.DataFrame:
     """ Add features to the dataframe, and return it. """
     trd = util.context['target_return_days']
     df = df.copy()
@@ -149,19 +158,21 @@ def add_features_portfolio()->bool:
     for i, symbol in enumerate(util.context['symbols']):
         filename = os.path.join(util.context['hist_dir'], f"{symbol}.parquet")
         if os.path.exists(filename):
-            logger.info(f"Processing {symbol} ({i+1}/{count})...")
+            logger.info("Processing %s (%d/%d)...", symbol, i+1, count)
             df = pd.read_parquet(filename)
             df = add_time_features(df)
-            df = add_features(df)
+            df = add_financial_features(df)
             dfs.append(df)
     df = pd.concat(dfs, ignore_index=True)
     df = cross_sectional_momentum_rank(df)
     df = volume_shock_feature(df)
     df = volatility_regime(df)
+    df = add_forex_features(df)
+    df = add_index_features(df)
     filename = os.path.join(util.context['portfolio_dir'], "features.parquet")
-    df = df[['symbol','date','day_of_week','time_since_high','close','log_return','mom_5','mom_10','mom_rank','vol_10',
-                'vol_20','vol_ratio','zscore_20','trend_50','volume_zscore',
-                'volume_shock','vol_regime','target']]
+    # df = df[['symbol','date','day_of_week','time_since_high','close','log_return','mom_5','mom_10','mom_rank','vol_10',
+    #             'vol_20','vol_ratio','zscore_20','trend_50','volume_zscore',
+    #             'volume_shock','vol_regime','target']]
     df.to_parquet(filename, index=False)
     return True
 

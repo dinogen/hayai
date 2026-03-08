@@ -7,6 +7,7 @@ import pandas as pd
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockLatestTradeRequest, StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
+import yfinance as yf
 import hayai_util as util
 
 import logging_config
@@ -45,6 +46,7 @@ def fetch_quotes_portfolio(days:int)->bool:
     return True
 
 def get_latest_trade_price(symbols:list[str])->float:
+    logger.info("Fetching latest trade prices...")
     client = util.get_stock_historical_data_client()
     request_params = StockLatestTradeRequest(symbol_or_symbols=symbols)
     result = client.get_stock_latest_trade(request_params)
@@ -53,6 +55,7 @@ def get_latest_trade_price(symbols:list[str])->float:
 
 def get_actual_position()->pd.DataFrame:
     # Get the actual positions from the trading client
+    logger.info("Fetching actual positions...")
     client = util.get_trading_client()
     portfolio = client.get_all_positions()
     df = pd.DataFrame([position.__dict__ for position in portfolio])
@@ -62,6 +65,27 @@ def get_actual_position()->pd.DataFrame:
     return df
 
 def get_account_info()->pd.DataFrame:
-    client = util.get_trading_client()
+    logger.info("Fetching account info...")
     account = client.get_account()
     return account
+
+def get_forex()-> pd.DataFrame:
+    logger.info("Fetching forex data...")
+    symbols = ['GBPUSD=X', 'EURUSD=X', 'USDJPY=X', 'USDCAD=X', 'USDCHF=X', 'AUDUSD=X', 'NZDUSD=X','GC=F']
+    data = yf.download(symbols, period="5y", interval="1d")
+    df = data['Close']
+    df.columns = [col.split('=')[0] for col in df.columns]
+    df['date'] = pd.to_datetime(df.index).date
+    df = df.reset_index(drop=True)
+    return df
+
+def get_index()-> pd.DataFrame:
+    logger.info("Fetching index data...")
+    symbols = ['^GSPC', '^DJI', '^IXIC', '^RUT', '^VIX1D']
+    data = yf.download(symbols, period="5y", interval="1d")
+    df = data['Close']
+    df.columns = [col.split('=')[0] for col in df.columns]
+    df['date'] = pd.to_datetime(df.index).date
+    df = df.reset_index(drop=True)
+    return df
+
