@@ -149,7 +149,27 @@ def volatility_regime(df):
         lambda x: x.rolling(60).std()
     )
     df["vol_regime"] = vol_10 / vol_60
-    return df 
+    return df
+
+def add_country(df):
+    df_portfolio = pd.read_csv(os.path.join(util.context['portfolio_dir'], 'portfolio.csv'))
+    df_countries = df_portfolio[['Symbol', 'Country']].sort_values(by='Country')
+    df = df.merge(df_countries, left_on='symbol', right_on='Symbol', how='left')
+    df = pd.get_dummies(df, columns=['Country'], prefix='country',dtype=int)
+    df.drop(columns=['Symbol'], inplace=True)
+    
+    df_sector = df_portfolio[['Symbol', 'Sector']].sort_values(by='Sector')
+    df = df.merge(df_sector, left_on='symbol', right_on='Symbol', how='left')
+    df = pd.get_dummies(df, columns=['Sector'], prefix='sector',dtype=int)
+    df.drop(columns=['Symbol'], inplace=True)
+    
+    # df_industry = df_portfolio[['Symbol', 'Industry']].sort_values(by='Industry')
+    # df = df.merge(df_industry, left_on='symbol', right_on='Symbol', how='left')
+    # df = pd.get_dummies(df, columns=['Industry'], prefix='industry',dtype=int)
+    # df.drop(columns=['Symbol'], inplace=True)
+    
+    return df
+
 
 def add_features_portfolio()->bool:
     """ Add features to the portfolio, and save to parquet. """
@@ -169,10 +189,10 @@ def add_features_portfolio()->bool:
     df = volatility_regime(df)
     df = add_forex_features(df)
     df = add_index_features(df)
+    df = add_country(df)
+    # the close price is not useful for the model, so we can drop it
+    df.drop(columns=['close'], inplace=True)
     filename = os.path.join(util.context['portfolio_dir'], "features.parquet")
-    # df = df[['symbol','date','day_of_week','time_since_high','close','log_return','mom_5','mom_10','mom_rank','vol_10',
-    #             'vol_20','vol_ratio','zscore_20','trend_50','volume_zscore',
-    #             'volume_shock','vol_regime','target']]
     df.to_parquet(filename, index=False)
     return True
 

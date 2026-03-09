@@ -24,20 +24,21 @@ def fetch_quotes(symbol:str,client:StockHistoricalDataClient)->pd.DataFrame:
     return result.df
 
 def fetch_quotes_portfolio(days:int)->bool:
-    # if it is from 3:30 PM to 10:00 PM, skip
-    now = datetime.now().time()
-    if now >= datetime.strptime("15:30:00", "%H:%M:%S").time() and now <= datetime.strptime("22:00:00", "%H:%M:%S").time():
-        print("market open, skipping data fetch")
-        return False
-
+    """ fetch historical quotes for all symbols in the portfolio, and save to parquet. """
     client:StockHistoricalDataClient = util.get_stock_historical_data_client()
-
     count = len(util.context['symbols'])
     for i, symbol in enumerate(util.context['symbols']):
         filename = os.path.join(util.context['hist_dir'], f"{symbol}.parquet")
-        print(f"Fetching data for {symbol} ({i+1}/{count})...")
-        df = fetch_quotes(symbol, client)
-        #df['symbol'] = symbol
+        if os.path.exists(filename):
+            mtime = datetime.fromtimestamp(os.path.getmtime(filename))
+            atime = datetime.fromtimestamp(os.path.getatime(filename))
+            ctime = datetime.fromtimestamp(os.path.getctime(filename))
+            mytime = max(mtime, atime, ctime)
+            if datetime.now() - mytime < timedelta(hours=4):
+                logger.info("Skipping %s (%d/%d), file is recent (< 4h)", symbol, i+1, count)
+                continue
+        logger.info("Fetching data for %s (%d/%d)...", symbol, i+1, count)
+        df = fetch_quotes(symbol, client)        #df['symbol'] = symbol
         df = df.reset_index()
         # remove asset that have less than 1 year of data
         if days > 365 and len(df) < 365:
