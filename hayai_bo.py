@@ -151,15 +151,30 @@ def volatility_regime(df):
     df["vol_regime"] = vol_10 / vol_60
     return df
 
+def reorder_columns(df)->pd.DataFrame:
+    """ Reorder columns in the dataframe, in alfanumeric order."""
+    cols = df.columns.tolist()
+    cols.sort()
+    df = df[cols]
+    return df
+
 def add_country(df):
+    df_model_portfolio = pd.read_csv(util.context['model_portfolio_csv'])
+
+    list_countries = df_model_portfolio['Country'].unique().tolist()
+    country_type = pd.api.types.CategoricalDtype(categories=list_countries)
     df_portfolio = pd.read_csv(os.path.join(util.context['portfolio_dir'], 'portfolio.csv'))
     df_countries = df_portfolio[['Symbol', 'Country']].sort_values(by='Country')
     df = df.merge(df_countries, left_on='symbol', right_on='Symbol', how='left')
+    df['Country'] = df['Country'].astype(country_type)
     df = pd.get_dummies(df, columns=['Country'], prefix='country',dtype=int)
     df.drop(columns=['Symbol'], inplace=True)
     
+    list_sectors = df_model_portfolio['Sector'].unique().tolist()
+    sector_type = pd.api.types.CategoricalDtype(categories=list_sectors)
     df_sector = df_portfolio[['Symbol', 'Sector']].sort_values(by='Sector')
     df = df.merge(df_sector, left_on='symbol', right_on='Symbol', how='left')
+    df['Sector'] = df['Sector'].astype(sector_type)
     df = pd.get_dummies(df, columns=['Sector'], prefix='sector',dtype=int)
     df.drop(columns=['Symbol'], inplace=True)
     
@@ -190,6 +205,7 @@ def add_features_portfolio()->bool:
     df = add_forex_features(df)
     df = add_index_features(df)
     df = add_country(df)
+    df = reorder_columns(df)
     # the close price is not useful for the model, so we can drop it
     df.drop(columns=['close'], inplace=True)
     filename = os.path.join(util.context['portfolio_dir'], "features.parquet")

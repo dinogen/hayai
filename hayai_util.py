@@ -46,6 +46,7 @@ def create_context(portfolio_id:str)->dict[str, any]:
     clip_min = conf_portfolio.getfloat('predictions', 'clip_min')
     clip_max = conf_portfolio.getfloat('predictions', 'clip_max')
     risk_percentage = conf_portfolio.getfloat('portfolio', 'risk_percentage')   
+    model_portfolio_csv = os.path.join("data","model", 'portfolio.csv')
 
     context = {'api_key': api_key, 
                 'secret_key': secret_key, 
@@ -66,7 +67,9 @@ def create_context(portfolio_id:str)->dict[str, any]:
                 'clip_max': clip_max,
                 'n_long': n_long,
                 'n_short': n_short,
-                'risk_percentage': risk_percentage}
+                'risk_percentage': risk_percentage,
+                'model_portfolio_csv': model_portfolio_csv
+                }
     return context
 
 def save_normalization_params(label_min:float, label_max:float)->bool:

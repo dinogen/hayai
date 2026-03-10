@@ -67,6 +67,7 @@ def get_actual_position()->pd.DataFrame:
 
 def get_account_info()->pd.DataFrame:
     logger.info("Fetching account info...")
+    client = util.get_trading_client()
     account = client.get_account()
     return account
 
