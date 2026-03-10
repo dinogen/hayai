@@ -12,25 +12,41 @@ import hayai_trade as trade
 import logging_config
 logger = logging_config.create_logger(__name__)
 
-def add_features(df:pd.DataFrame)->pd.DataFrame:
+def add_time_features(df:pd.DataFrame)->pd.DataFrame:
+    """ Add time-related features to the dataframe, and return it. """
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df['date'] = df['timestamp'].dt.date
+    df = df.set_index('date')
+    df['day_of_week'] = df['timestamp'].dt.dayofweek
+    df['time_since_high'] = 0 # set initial value to 0, then update it iterating over the dataframe
+    max_close = -1
+    days_since_high = 0
+    for i,row in df.iterrows():
+        if row['close'] > max_close:
+            max_close = row['close']
+            days_since_high = 0
+            # the value is already 0
+        else:
+            days_since_high += 1
+            df.loc[i,'time_since_high'] = days_since_high
+    df.drop(columns=['timestamp',], inplace=True)
+    df = df.reset_index() # set date as column again
+    return df
+
+def add_forex_features(df:pd.DataFrame)->pd.DataFrame:
+    forex_df = dao.get_forex()
+    df = df.merge(forex_df, left_on='date', right_on='date', how='left')
+    return df
+
+def add_index_features(df:pd.DataFrame)->pd.DataFrame:
+    index_df = dao.get_index()
+    df = df.merge(index_df, left_on='date', right_on='date', how='left')
+    return df
+
+def add_financial_features(df:pd.DataFrame)->pd.DataFrame:
     """ Add features to the dataframe, and return it. """
     trd = util.context['target_return_days']
-    # df['timestamp'] = pd.to_datetime(df['timestamp'])
-
-    # #features about time
-    df['date'] = df['timestamp'].dt.date
-    df.drop(columns=['timestamp'], inplace=True)
-    # df = df.set_index('date')
-    # df['day_of_week'] = df['timestamp'].dt.dayofweek
-    # df['index_of_max'] = date.today()
-    # for i,row in df.iterrows():
-    #     df.loc[i,'index_of_max'] = df['close'][:i].idxmax()
-    # df['timedelta_since_high'] = (df.index - df['index_of_max'])
-    # df['time_since_high'] = df.apply(lambda x: x['timedelta_since_high'].days, axis=1)
-    # df.drop(columns=['index_of_max','timedelta_since_high'], inplace=True)
-
     df = df.copy()
-
     # -------------------------
     # RETURNS
     # -------------------------
@@ -140,6 +156,41 @@ def volatility_regime(df):
     df["vol_regime"] = vol_10 / vol_60
     return df
 
+def reorder_columns(df)->pd.DataFrame:
+    """ Reorder columns in the dataframe, in alfanumeric order."""
+    cols = df.columns.tolist()
+    cols.sort()
+    df = df[cols]
+    return df
+
+def add_country(df):
+    df_model_portfolio = pd.read_csv(util.context['model_portfolio_csv'])
+
+    list_countries = df_model_portfolio['Country'].unique().tolist()
+    country_type = pd.api.types.CategoricalDtype(categories=list_countries)
+    df_portfolio = pd.read_csv(os.path.join(util.context['portfolio_dir'], 'portfolio.csv'))
+    df_countries = df_portfolio[['Symbol', 'Country']].sort_values(by='Country')
+    df = df.merge(df_countries, left_on='symbol', right_on='Symbol', how='left')
+    df['Country'] = df['Country'].astype(country_type)
+    df = pd.get_dummies(df, columns=['Country'], prefix='country',dtype=int)
+    df.drop(columns=['Symbol'], inplace=True)
+    
+    list_sectors = df_model_portfolio['Sector'].unique().tolist()
+    sector_type = pd.api.types.CategoricalDtype(categories=list_sectors)
+    df_sector = df_portfolio[['Symbol', 'Sector']].sort_values(by='Sector')
+    df = df.merge(df_sector, left_on='symbol', right_on='Symbol', how='left')
+    df['Sector'] = df['Sector'].astype(sector_type)
+    df = pd.get_dummies(df, columns=['Sector'], prefix='sector',dtype=int)
+    df.drop(columns=['Symbol'], inplace=True)
+    
+    # df_industry = df_portfolio[['Symbol', 'Industry']].sort_values(by='Industry')
+    # df = df.merge(df_industry, left_on='symbol', right_on='Symbol', how='left')
+    # df = pd.get_dummies(df, columns=['Industry'], prefix='industry',dtype=int)
+    # df.drop(columns=['Symbol'], inplace=True)
+    
+    return df
+
+
 def add_features_portfolio()->bool:
     """ Add features to the portfolio, and save to parquet. """
     count = len(util.context['symbols'])
@@ -149,16 +200,20 @@ def add_features_portfolio()->bool:
         if os.path.exists(filename):
             logger.info("Processing %s (%d/%d)...", symbol, i+1, count)
             df = pd.read_parquet(filename)
-            df = add_features(df)
+            df = add_time_features(df)
+            df = add_financial_features(df)
             dfs.append(df)
     df = pd.concat(dfs, ignore_index=True)
     df = cross_sectional_momentum_rank(df)
     df = volume_shock_feature(df)
     df = volatility_regime(df)
+    df = add_forex_features(df)
+    df = add_index_features(df)
+    df = add_country(df)
+    df = reorder_columns(df)
+    # the close price is not useful for the model, so we can drop it
+    df.drop(columns=['close'], inplace=True)
     filename = os.path.join(util.context['portfolio_dir'], "features.parquet")
-    df = df[['symbol','date','log_return','mom_5','mom_10','mom_rank','vol_10',
-                'vol_20','vol_ratio','zscore_20','trend_50','volume_zscore',
-                'volume_shock','vol_regime','target']]
     df.to_parquet(filename, index=False)
     return True
 
