@@ -106,6 +106,7 @@ def add_financial_features(df:pd.DataFrame)->pd.DataFrame:
     df["mom_vol_adj"] = df["mom_20"] / df["vol_20"]
 
     df["target"] = df["log_return"].shift(-trd) / df["vol_20"]
+    df["target"] = df["target"].clip(util.context['clip_min'], util.context['clip_max'])
     df.dropna(subset=["log_return",
                       "mom_5",
                       "mom_10",
@@ -164,7 +165,7 @@ def reorder_columns(df)->pd.DataFrame:
     return df
 
 def add_country(df):
-    df_model_portfolio = pd.read_csv(util.context['model_portfolio_csv'])
+    df_model_portfolio = pd.read_csv(os.path.join(util.context['model_dir'], 'portfolio.csv'))
 
     list_countries = df_model_portfolio['Country'].unique().tolist()
     country_type = pd.api.types.CategoricalDtype(categories=list_countries)
@@ -211,8 +212,8 @@ def add_features_portfolio()->bool:
     df = add_index_features(df)
     df = add_country(df)
     df = reorder_columns(df)
-    # the close price is not useful for the model, so we can drop it
-    df.drop(columns=['close'], inplace=True)
+    # the close and low prices are not useful for the model, so we can drop them
+    df.drop(columns=['close','low','high','open'], inplace=True)
     filename = os.path.join(util.context['portfolio_dir'], "features.parquet")
     df.to_parquet(filename, index=False)
     return True
@@ -222,7 +223,7 @@ def apply_prediction()->pd.DataFrame:
     import keras
     logger.info("Applying model to the portfolio...")
     filename = os.path.join(util.context['portfolio_dir'], "features.parquet")
-    filename_model = os.path.join(util.context['portfolio_dir'], "model.keras")
+    filename_model = os.path.join(util.context['model_dir'], "model.keras")
     filename_out = os.path.join(util.context['portfolio_dir'], "predictions.parquet")
     model = keras.saving.load_model(filename_model)
     df = pd.read_parquet(filename)
@@ -231,13 +232,20 @@ def apply_prediction()->pd.DataFrame:
     print(f"Applying model to {len(df)} assets... with date={df['date'].max()}")
     df_asset = df[['symbol', 'date']]
     df = df.drop(columns=['date','symbol','target'])
+    # normalize df
+    mins = pd.read_csv(os.path.join(util.context['model_dir'], "mins.csv"), index_col='col')['value']
+    maxs = pd.read_csv(os.path.join(util.context['model_dir'], "maxs.csv"), index_col='col')['value']
+    mins = mins.drop('target', errors='ignore')
+    maxs = maxs.drop('target', errors='ignore')
+    df = (df - mins) / (maxs - mins)
     x = df.values
     predictions = model.predict(x, verbose=0)
-    df['prediction'] = predictions
-    #denormalize
+    # denormalize
     label_min = util.context['label_min']
     label_max = util.context['label_max']
-    df['prediction'] = df['prediction'] * (label_max - label_min) + label_min
+    predictions = predictions * (label_max - label_min) + label_min
+    predictions = predictions.clip(util.context['clip_min'], util.context['clip_max'])
+    df['prediction'] = predictions
     # rimetto i nomi degli asset e le date
     df['symbol'] = df_asset['symbol']
     df['date'] = df_asset['date']
@@ -252,7 +260,7 @@ def define_weight():
     filename_out = os.path.join(util.context['portfolio_dir'], "weights.parquet")
     df = pd.read_parquet(filename_in)
     df = df[['symbol','prediction','vol_20']]
-    df['weight'] = df['prediction'].clip(lower=-5, upper=5) / df['vol_20']
+    df['weight'] = df['prediction'].clip(lower=util.context['clip_min'], upper=util.context['clip_max']) / df['vol_20']
     # ordina per peso decrescente
     df = df.sort_values(by='weight', ascending=False)
     df_long = df[df['weight'] > 0].head(util.context['n_long'])

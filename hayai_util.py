@@ -11,12 +11,7 @@ from alpaca.data.historical import StockHistoricalDataClient
 
 
 def create_context(portfolio_id:str)->dict[str, any]:
-    global context
-    config = configparser.ConfigParser()
-    config.read('conf.ini')
-    api_key = config.get('alpaca', 'api_key')
-    secret_key = config.get('alpaca', 'secret_key')
-    
+    global context    
     portfolio_dir = os.path.join('data', portfolio_id)
     hist_dir = os.path.join(portfolio_dir, 'hist')
     if not os.path.exists(portfolio_dir):
@@ -39,15 +34,21 @@ def create_context(portfolio_id:str)->dict[str, any]:
     batch_size = conf_portfolio.getint('training', 'batch_size')
     learning_rate = conf_portfolio.getfloat('training', 'learning_rate')
     validation_split = conf_portfolio.getfloat('training', 'validation_split')
-    label_min = conf_portfolio.getfloat('predictions', 'label_min')
-    label_max = conf_portfolio.getfloat('predictions', 'label_max')
     n_long = conf_portfolio.getint('portfolio', 'n_long')
     n_short = conf_portfolio.getint('portfolio', 'n_short')
-    clip_min = conf_portfolio.getfloat('predictions', 'clip_min')
-    clip_max = conf_portfolio.getfloat('predictions', 'clip_max')
+    api_key = conf_portfolio.get('portfolio', 'api_key')
+    secret_key = conf_portfolio.get('portfolio', 'secret_key')
     risk_percentage = conf_portfolio.getfloat('portfolio', 'risk_percentage')   
     qty_diff_perc_min = conf_portfolio.getfloat('portfolio', 'qty_diff_perc_min')
-    model_portfolio_csv = os.path.join("data","model", 'portfolio.csv')
+
+    conf_model = configparser.ConfigParser()
+    model_dir = os.path.join("data","model")
+    conf_model.read(os.path.join(model_dir, 'conf.ini'))
+    label_min = conf_model.getfloat('predictions', 'label_min')
+    label_max = conf_model.getfloat('predictions', 'label_max')
+    clip_min = conf_model.getfloat('predictions', 'clip_min')
+    clip_max = conf_model.getfloat('predictions', 'clip_max')
+
 
     context = {'api_key': api_key, 
                 'secret_key': secret_key, 
@@ -70,7 +71,7 @@ def create_context(portfolio_id:str)->dict[str, any]:
                 'n_short': n_short,
                 'risk_percentage': risk_percentage,
                 'qty_diff_perc_min': qty_diff_perc_min,
-                'model_portfolio_csv': model_portfolio_csv}
+                'model_dir': model_dir}
     return context
 
 def save_normalization_params(label_min:float, label_max:float)->bool:
