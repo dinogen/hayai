@@ -6,11 +6,11 @@ import hayai_bo
 
 if __name__ == "__main__":
     args = argparse.ArgumentParser(description='Run the trading application.')
-    args.add_argument('--portfolio-id', type=str, help='ID of the portfolio to use',required=True)
-    args.add_argument('--ingestion', help='Build an updated dataset for training the model',action='store_true')
-    args.add_argument('--build-signals', help='Calculate signals and weights',action='store_true')
-    args.add_argument('--new-position', help='Calculate the new position of portfolio',action='store_true')
-    args.add_argument('--execute-trades', help='Execute trades based on the new position',action='store_true')
+    args.add_argument('-p','--portfolio-id', type=str, help='ID of the portfolio to use',required=True)
+    args.add_argument('-i','--ingestion', help='Build an updated dataset for training the model',action='store_true')
+    args.add_argument('-s','--build-signals', help='Calculate signals and weights',action='store_true')
+    args.add_argument('-n','--new-position', help='Calculate the new position of portfolio',action='store_true')
+    args.add_argument('-e','--execute-trades', help='Execute trades based on the new position',action='store_true')
     portfolio_id = args.parse_args().portfolio_id
     ingestion = args.parse_args().ingestion
     build_signals = args.parse_args().build_signals
