@@ -73,7 +73,7 @@ def get_account_info()->pd.DataFrame:
 
 def get_forex()-> pd.DataFrame:
     logger.info("Fetching forex data...")
-    symbols = ['GBPUSD=X', 'EURUSD=X', 'USDJPY=X', 'USDCAD=X', 'USDCHF=X', 'AUDUSD=X', 'NZDUSD=X','GC=F']
+    symbols = ['GBPUSD=X', 'EURUSD=X', 'USDJPY=X', 'USDCAD=X', 'USDCHF=X', 'AUDUSD=X', 'NZDUSD=X','GC=F','BZ=F']
     data = yf.download(symbols, period="5y", interval="1d")
     df = data['Close']
     df.columns = [col.split('=')[0] for col in df.columns]
