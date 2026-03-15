@@ -3,8 +3,9 @@ import argparse
 import hayai_util as util
 import hayai_dao
 import hayai_bo
-import logging_config
-logger = logging_config.create_logger(__name__)
+import hayai_msg as msg
+import hayai_log
+logger = hayai_log.create_logger(__name__)
 
 if __name__ == "__main__":
     args = argparse.ArgumentParser(description='Run the trading application.')
@@ -31,6 +32,7 @@ if __name__ == "__main__":
         hayai_bo.apply_prediction()
         hayai_bo.define_weight()
         logger.info("Signals and weights calculation finished.")
+        msg.send_file(hayai_log.log_filename(), caption='HAYAI log file after building signals and weights.')
     if new_position:
         logger.info("Calculating new position...")
         hayai_bo.build_new_position()
@@ -40,4 +42,5 @@ if __name__ == "__main__":
         logger.info("Executing trades...")
         hayai_bo.execution()
         logger.info("Trades execution finished.")
+        msg.send_message("HAYAI has executed trades for portfolio '%s'. Go check on Alpaca" % portfolio_id)
     logger.info("HAYAI finished.")

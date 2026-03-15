@@ -5,8 +5,8 @@ from alpaca.trading.enums import OrderSide, TimeInForce
 from alpaca.common.exceptions import APIError
 import hayai_util as util
 
-import logging_config
-logger = logging_config.create_logger(__name__)
+import hayai_log
+logger = hayai_log.create_logger(__name__)
 
 def place_order_buy(tc:TradingClient,symbol:str,qty:float):
     assert qty > 0, "Quantity must be positive for buy orders."

@@ -25,6 +25,13 @@ def create_context(portfolio_id:str)->dict[str, any]:
     df = pd.read_csv(os.path.join(portfolio_dir, 'portfolio.csv'))
     symbols = df['Symbol'].tolist()
 
+    conf_global = configparser.ConfigParser()
+    conf_global.read('conf.ini')
+    telegram_api_id = conf_global.get('telegram', 'api_id')
+    telegram_api_hash = conf_global.get('telegram', 'api_hash')
+    telegram_bot_token = conf_global.get('telegram', 'bot_token')
+    telegram_chat_id = conf_global.get('telegram', 'chat_id')
+
     conf_portfolio = configparser.ConfigParser()
     conf_portfolio.read(os.path.join(portfolio_dir, 'conf.ini'))
     volatility_window = conf_portfolio.getint('features', 'volatility_window')
@@ -71,7 +78,12 @@ def create_context(portfolio_id:str)->dict[str, any]:
                 'n_short': n_short,
                 'risk_percentage': risk_percentage,
                 'qty_diff_perc_min': qty_diff_perc_min,
-                'model_dir': model_dir}
+                'model_dir': model_dir,
+                'telegram_api_id': telegram_api_id,
+                'telegram_api_hash': telegram_api_hash,
+                'telegram_bot_token': telegram_bot_token,
+                'telegram_chat_id': telegram_chat_id,
+                'chat:id': telegram_chat_id}
     return context
 
 def save_normalization_params(label_min:float, label_max:float)->bool:

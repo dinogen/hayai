@@ -10,8 +10,8 @@ from alpaca.data.timeframe import TimeFrame
 import yfinance as yf
 import hayai_util as util
 
-import logging_config
-logger = logging_config.create_logger(__name__)
+import hayai_log
+logger = hayai_log.create_logger(__name__)
 
 def fetch_quotes(symbol:str,client:StockHistoricalDataClient)->pd.DataFrame:
     """fetch historical quotes for a given symbol, with """

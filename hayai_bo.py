@@ -9,8 +9,8 @@ import hayai_util as util
 import hayai_dao as dao
 import hayai_trade as trade
 
-import logging_config
-logger = logging_config.create_logger(__name__)
+import hayai_log
+logger = hayai_log.create_logger(__name__)
 
 def add_time_features(df:pd.DataFrame)->pd.DataFrame:
     """ Add time-related features to the dataframe, and return it. """
@@ -229,7 +229,7 @@ def apply_prediction()->pd.DataFrame:
     df = pd.read_parquet(filename)
     df = df.reset_index(drop=True)
     df = df[df['date'] == df["date"].max()]
-    print(f"Applying model to {len(df)} assets... with date={df['date'].max()}")
+    logger.info(f"Applying model to {len(df)} assets... with date={df['date'].max()}")
     df_asset = df[['symbol', 'date']]
     df = df.drop(columns=['date','symbol','target'])
     # normalize df
