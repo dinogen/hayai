@@ -25,12 +25,12 @@ def create_context(portfolio_id:str)->dict[str, any]:
     df = pd.read_csv(os.path.join(portfolio_dir, 'portfolio.csv'))
     symbols = df['Symbol'].tolist()
 
-    conf_global = configparser.ConfigParser()
-    conf_global.read('conf.ini')
-    telegram_api_id = conf_global.get('telegram', 'api_id')
-    telegram_api_hash = conf_global.get('telegram', 'api_hash')
-    telegram_bot_token = conf_global.get('telegram', 'bot_token')
-    telegram_chat_id = conf_global.get('telegram', 'chat_id')
+    secret_global = configparser.ConfigParser()
+    secret_global.read('secret.ini')
+    telegram_api_id = secret_global.get('telegram', 'api_id')
+    telegram_api_hash = secret_global.get('telegram', 'api_hash')
+    telegram_bot_token = secret_global.get('telegram', 'bot_token')
+    telegram_chat_id = secret_global.get('telegram', 'chat_id')
 
     conf_portfolio = configparser.ConfigParser()
     conf_portfolio.read(os.path.join(portfolio_dir, 'conf.ini'))
@@ -43,10 +43,9 @@ def create_context(portfolio_id:str)->dict[str, any]:
     validation_split = conf_portfolio.getfloat('training', 'validation_split')
     n_long = conf_portfolio.getint('portfolio', 'n_long')
     n_short = conf_portfolio.getint('portfolio', 'n_short')
-    api_key = conf_portfolio.get('portfolio', 'api_key')
-    secret_key = conf_portfolio.get('portfolio', 'secret_key')
     risk_percentage = conf_portfolio.getfloat('portfolio', 'risk_percentage')   
     qty_diff_perc_min = conf_portfolio.getfloat('portfolio', 'qty_diff_perc_min')
+
 
     conf_model = configparser.ConfigParser()
     model_dir = os.path.join("data","model")
@@ -55,6 +54,11 @@ def create_context(portfolio_id:str)->dict[str, any]:
     label_max = conf_model.getfloat('predictions', 'label_max')
     clip_min = conf_model.getfloat('predictions', 'clip_min')
     clip_max = conf_model.getfloat('predictions', 'clip_max')
+
+    secret_portfolio = configparser.ConfigParser()
+    secret_portfolio.read(os.path.join(portfolio_dir, 'secret.ini'))
+    api_key = secret_portfolio.get('portfolio', 'api_key')
+    secret_key = secret_portfolio.get('portfolio', 'secret_key')
 
 
     context = {'api_key': api_key, 

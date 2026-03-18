@@ -165,10 +165,8 @@ cython_debug/
 StInvOut/
 tan/
 doc/~$*.xlsx
-*.ini
+secret.ini
 *.parquet
 
-anon.session
-bot.session
-session.session
+
 *.session
