@@ -1,17 +1,19 @@
 """
-This module provides utility functions for trading operations, 
-including context creation for portfolio management. 
-It reads configuration settings from a specified directory and 
+This module provides utility functions for trading operations,
+including context creation for portfolio management.
+It reads configuration settings from a specified directory and
 prepares the necessary information for trading activities."""
 import configparser
+from datetime import datetime,date,timedelta
 import os
 import pandas as pd
 from alpaca.trading.client import TradingClient
 from alpaca.data.historical import StockHistoricalDataClient
 
+CASH_SYMBOL = 'MYCASH'
 
 def create_context(portfolio_id:str)->dict[str, any]:
-    global context    
+    global context
     portfolio_dir = os.path.join('data', portfolio_id)
     hist_dir = os.path.join(portfolio_dir, 'hist')
     if not os.path.exists(portfolio_dir):
@@ -43,8 +45,9 @@ def create_context(portfolio_id:str)->dict[str, any]:
     validation_split = conf_portfolio.getfloat('training', 'validation_split')
     n_long = conf_portfolio.getint('portfolio', 'n_long')
     n_short = conf_portfolio.getint('portfolio', 'n_short')
-    risk_percentage = conf_portfolio.getfloat('portfolio', 'risk_percentage')   
+    risk_percentage = conf_portfolio.getfloat('portfolio', 'risk_percentage')
     qty_diff_perc_min = conf_portfolio.getfloat('portfolio', 'qty_diff_perc_min')
+    data_source = conf_portfolio.get('features', 'data_source', fallback='alpaca')
 
 
     conf_model = configparser.ConfigParser()
@@ -61,9 +64,9 @@ def create_context(portfolio_id:str)->dict[str, any]:
     secret_key = secret_portfolio.get('portfolio', 'secret_key')
 
 
-    context = {'api_key': api_key, 
-                'secret_key': secret_key, 
-                'portfolio_dir': portfolio_dir, 
+    context = {'api_key': api_key,
+                'secret_key': secret_key,
+                'portfolio_dir': portfolio_dir,
                 'hist_dir': hist_dir,
                 'symbols': symbols,
                 'portfolio_id': portfolio_id,
@@ -87,7 +90,8 @@ def create_context(portfolio_id:str)->dict[str, any]:
                 'telegram_api_hash': telegram_api_hash,
                 'telegram_bot_token': telegram_bot_token,
                 'telegram_chat_id': telegram_chat_id,
-                'chat:id': telegram_chat_id}
+                'chat:id': telegram_chat_id,
+                'data_source': data_source}
     return context
 
 def save_normalization_params(label_min:float, label_max:float)->bool:
@@ -113,3 +117,32 @@ def get_stock_historical_data_client()->StockHistoricalDataClient:
     secret_key = context['secret_key']
     client = StockHistoricalDataClient(api_key=apikey,secret_key=secret_key)
     return client
+
+def create_position_report()->None:
+    """Create a html file with the current positions, including symbol, quantity, price and value."""
+    filename_in = os.path.join(context['portfolio_dir'],'position_new_qty.parquet')
+    filename_out = os.path.join(context['portfolio_dir'],'position_report.html')
+    df = pd.read_parquet(filename_in)
+    df = df[df['qty_new'] != 0]
+    ar = {'symbol':[],'qty':[], 'price':[],'value':[]}
+    long = 0.0
+    short = 0.0
+    html = "<table><tr><th>Symbol</th><th>Qty</th><th>Price</th><th>Value</th></tr>"
+    for index, row in df.iterrows():
+        symbol = row['symbol']
+        qty = row['qty_new']
+        df_price = pd.read_parquet(os.path.join(context['hist_dir'], f"{row['symbol']}.parquet"))
+        df_price = df_price.sort_values('timestamp', ascending=False).head(1)
+        price = df_price['close'].values[0]
+        value = qty * price
+        if qty > 0:
+            long += value
+        else:
+            short += value
+        html += f"<tr><td>{symbol}</td><td>{qty}</td><td>${price:.2f}</td><td>${value:.2f}</td></tr>"
+    html += f"<tr><td colspan='3'>Total Long</td><td>${long:.2f}</td></tr>"
+    html += f"<tr><td colspan='3'>Total Short</td><td>${short:.2f}</td></tr>"
+    html += f"<tr><td colspan='3'>Net Position</td><td>${long + short:.2f}</td></tr>"
+    html += "</table>"
+    with open(filename_out, 'w', encoding='utf-8') as f:
+        f.write(html)

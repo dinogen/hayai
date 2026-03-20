@@ -1,5 +1,6 @@
 """ main """
 import argparse
+import os
 import hayai_util as util
 import hayai_dao
 import hayai_bo
@@ -26,13 +27,16 @@ if __name__ == "__main__":
         logger.info("Starting data ingestion...")
         hayai_dao.fetch_quotes_portfolio(365*5)
         hayai_bo.add_features_portfolio()
-        logger.info("Data ingestion finished.")
+        util.create_position_report()
+        msg.send_file(os.path.join(context['portfolio_dir'],'position_report.html'), 
+                      caption='HAYAI position report with last prices.')
     if build_signals:
         logger.info("Calculating signals and weights...")
         hayai_bo.apply_prediction()
         hayai_bo.define_weight()
         logger.info("Signals and weights calculation finished.")
-        msg.send_file(hayai_log.log_filename(), caption='HAYAI log file after building signals and weights.')
+        msg.send_file(hayai_log.log_filename(), 
+                      caption='HAYAI log file after building signals and weights.')
     if new_position:
         logger.info("Calculating new position...")
         hayai_bo.build_new_position()

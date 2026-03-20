@@ -295,8 +295,8 @@ def define_new_quantity():
     df = pd.read_parquet(filename_in)
     df_price = dao.get_latest_trade_price(df['symbol'].tolist())
     df = pd.merge(df, df_price, on='symbol', how='outer').fillna(0)
-    buying_power = float(dao.get_account_info().buying_power)
-    capital = buying_power * util.context['risk_percentage']
+    equity = dao.get_equity()
+    capital = equity * util.context['risk_percentage']
     df['value_new'] = df['weight_new'] * capital
     df['qty_new'] = (df['value_new'] / df['price']).round()
     df['qty_diff'] = df['qty_new'] - df['qty_old']
