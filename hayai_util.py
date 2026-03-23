@@ -24,7 +24,7 @@ def create_context(portfolio_id:str)->dict[str, any]:
         raise FileNotFoundError(f"Configuration file '{os.path.join(portfolio_dir, 'conf.ini')}' does not exist.")
     if not os.path.exists(hist_dir):
         os.mkdir(os.path.join(portfolio_dir, 'hist'))
-    df = pd.read_csv(os.path.join(portfolio_dir, 'portfolio.csv'))
+    df = pd.read_csv(os.path.join(portfolio_dir, 'portfolio.csv'),keep_default_na=False)
     symbols = df['Symbol'].tolist()
 
     secret_global = configparser.ConfigParser()
@@ -36,27 +36,26 @@ def create_context(portfolio_id:str)->dict[str, any]:
 
     conf_portfolio = configparser.ConfigParser()
     conf_portfolio.read(os.path.join(portfolio_dir, 'conf.ini'))
-    volatility_window = conf_portfolio.getint('features', 'volatility_window')
-    target_return_days = conf_portfolio.getint('features', 'target_return_days')
-    mean_window = conf_portfolio.getint('features', 'mean_window')
-    epochs = conf_portfolio.getint('training', 'epochs')
-    batch_size = conf_portfolio.getint('training', 'batch_size')
-    learning_rate = conf_portfolio.getfloat('training', 'learning_rate')
-    validation_split = conf_portfolio.getfloat('training', 'validation_split')
-    n_long = conf_portfolio.getint('portfolio', 'n_long')
-    n_short = conf_portfolio.getint('portfolio', 'n_short')
-    risk_percentage = conf_portfolio.getfloat('portfolio', 'risk_percentage')
-    qty_diff_perc_min = conf_portfolio.getfloat('portfolio', 'qty_diff_perc_min')
-    data_source = conf_portfolio.get('features', 'data_source', fallback='alpaca')
+    volatility_window = conf_portfolio.getint('features', 'volatility_window', fallback=20)
+    target_return_days = conf_portfolio.getint('features', 'target_return_days', fallback=5)
+    mean_window = conf_portfolio.getint('features', 'mean_window', fallback=20)
+    epochs = conf_portfolio.getint('training', 'epochs', fallback=20)
+    batch_size = conf_portfolio.getint('training', 'batch_size', fallback=64)
+    learning_rate = conf_portfolio.getfloat('training', 'learning_rate', fallback=0.001)
+    validation_split = conf_portfolio.getfloat('training', 'validation_split', fallback=0.2)
+    n_long = conf_portfolio.getint('portfolio', 'n_long', fallback=5)
+    n_short = conf_portfolio.getint('portfolio', 'n_short', fallback=5)
+    risk_percentage = conf_portfolio.getfloat('portfolio', 'risk_percentage', fallback=0.8)
+    qty_diff_perc_min = conf_portfolio.getfloat('portfolio', 'qty_diff_perc_min', fallback=0.2)
+    data_source = conf_portfolio.get('features', 'data_source', fallback='yfinance')
+    model_name = conf_portfolio.get('predictions', 'model', fallback='model')
 
 
     conf_model = configparser.ConfigParser()
-    model_dir = os.path.join("data","model")
+    model_dir = os.path.join("data", model_name)
     conf_model.read(os.path.join(model_dir, 'conf.ini'))
-    label_min = conf_model.getfloat('predictions', 'label_min')
-    label_max = conf_model.getfloat('predictions', 'label_max')
-    clip_min = conf_model.getfloat('predictions', 'clip_min')
-    clip_max = conf_model.getfloat('predictions', 'clip_max')
+    clip_min = conf_model.getfloat('predictions', 'clip_min', fallback=-5)
+    clip_max = conf_model.getfloat('predictions', 'clip_max', fallback=5)
 
     secret_portfolio = configparser.ConfigParser()
     secret_portfolio.read(os.path.join(portfolio_dir, 'secret.ini'))
@@ -77,8 +76,6 @@ def create_context(portfolio_id:str)->dict[str, any]:
                 'batch_size': batch_size,
                 'learning_rate': learning_rate,
                 'validation_split': validation_split,
-                'label_min': label_min,
-                'label_max': label_max,
                 'clip_min': clip_min,
                 'clip_max': clip_max,
                 'n_long': n_long,
@@ -118,10 +115,13 @@ def get_stock_historical_data_client()->StockHistoricalDataClient:
     client = StockHistoricalDataClient(api_key=apikey,secret_key=secret_key)
     return client
 
-def create_position_report()->None:
-    """Create a html file with the current positions, including symbol, quantity, price and value."""
+def create_position_report()->bool:
+    """Create a html file with the current positions, including symbol, quantity, price and value.
+    Return true in success, false otherwise."""
     filename_in = os.path.join(context['portfolio_dir'],'position_new_qty.parquet')
     filename_out = os.path.join(context['portfolio_dir'],'position_report.html')
+    if not os.path.exists(filename_in):
+        return False
     df = pd.read_parquet(filename_in)
     df = df[df['qty_new'] != 0]
     ar = {'symbol':[],'qty':[], 'price':[],'value':[]}
@@ -146,3 +146,4 @@ def create_position_report()->None:
     html += "</table>"
     with open(filename_out, 'w', encoding='utf-8') as f:
         f.write(html)
+    return True

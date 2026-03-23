@@ -18,8 +18,8 @@ def fetch_quotes_yfinance(symbol:str)->pd.DataFrame:
     data = yf.download(symbol, period="5y", interval="1d")
     data = data.reset_index()
     data['symbol'] = symbol
-    data = data[['symbol', 'Date', 'Close', 'Volume']]
-    data.columns = ['symbol', 'date', 'close', 'volume']
+    data = data[['symbol', 'Date','Open', 'Close', 'High', 'Low', 'Volume']]
+    data.columns = ['symbol', 'date', 'open', 'close','high','low', 'volume']
     return data
 
 def fetch_quotes_alpaca(symbol:str,client:StockHistoricalDataClient)->pd.DataFrame:
@@ -67,7 +67,10 @@ def fetch_quotes_portfolio(days:int)->bool:
         df.to_parquet(filename, index=False)
     return True
 
-def get_latest_trade_price_alpaca(symbols:list[str])->pd.DataFrame:
+def get_latest_price_alpaca(symbols:list[str])->pd.DataFrame:
+    """
+    Fetch latest trade prices for a list of symbols using Alpaca.
+    """
     logger.info("Fetching latest trade prices from Alpaca...")
     client = util.get_stock_historical_data_client()
     request_params = StockLatestTradeRequest(symbol_or_symbols=symbols)
@@ -75,23 +78,28 @@ def get_latest_trade_price_alpaca(symbols:list[str])->pd.DataFrame:
     prices = {k: v.price for k, v in result.items()}
     return pd.DataFrame(list(prices.items()), columns=['symbol', 'price'])
 
-def get_latest_trade_price_yfinance(symbols:list[str])->pd.DataFrame:
+def get_latest_price_yfinance(symbols:list[str])->pd.DataFrame:
     """
     Fetch latest trade prices for a list of symbols using yfinance. 
     Returns a dataframe with two columns: 'symbol' and 'price'.
-     - For stocks, it fetches the latest closing price.
     """
     logger.info("Fetching latest trade prices from Yahoo Finance...")
-    data = yf.download(symbols, period="1d", interval="1d")
-    df = data['Close'].iloc[-1].reset_index()
-    df.columns = ['symbol', 'price']
+    prices = []
+    for symbol in symbols:
+        ticker = yf.Ticker(symbol)
+        price = ticker.info['postMarketPrice']
+        if price is None:
+            price = ticker.info['currentPrice']
+        prices.append((symbol, price))
+    df = pd.DataFrame(prices, columns=['symbol', 'price'])
+        
     return df
 
-def get_latest_trade_price(symbols:list[str])->pd.DataFrame:
+def get_latest_price(symbols:list[str])->pd.DataFrame:
     if util.context['data_source'] == 'yfinance':
-        return get_latest_trade_price_yfinance(symbols)
+        return get_latest_price_yfinance(symbols)
     if util.context['data_source'] == 'alpaca':
-        return get_latest_trade_price_alpaca(symbols)
+        return get_latest_price_alpaca(symbols)
     
 def get_actual_position_alpaca()->pd.DataFrame:
     """
@@ -108,17 +116,16 @@ def get_actual_position_alpaca()->pd.DataFrame:
 
 def get_actual_position_yfinance()->pd.DataFrame:
     """
-    Get the actual position from a parquet file. Returns a dataframe with  columns: 'symbol', 'qty_old'.
-    CASH_t = CASH_t - Long_t + |Short_t|
+    Get the actual position from a parquet file. 
+    Returns a dataframe with  columns: symbol, qty, price, value.
     """
     logger.info("Fetching actual positions from parquet file...")
     filename = os.path.join(util.context['portfolio_dir'], "actual_positions.parquet")
     if not os.path.exists(filename):
         logger.warning("Positions file does not exist. Returning empty dataframe.")
-        return pd.DataFrame(columns=['symbol', 'qty'])
+        return pd.DataFrame([[util.CASH_SYMBOL, 1, util.context['initial_capital'], util.context['initial_capital']]], 
+                            columns=['symbol', 'qty', 'price', 'value'])
     df = pd.read_parquet(filename)
-    df = df[['symbol', 'qty_old']]
-    df = df[df['symbol'] != util.CASH_SYMBOL]  # Exclude cash position
     return df
 
 def get_actual_position()->pd.DataFrame:
@@ -132,6 +139,9 @@ def get_actual_position()->pd.DataFrame:
         return get_actual_position_alpaca()
 
 def get_equity_alpaca()->float:
+    """
+    Get the equity from Alpaca. Returns a float.
+    """
     client = util.get_trading_client()
     account = client.get_account()
     buying_power = float(account.equity)
@@ -139,7 +149,7 @@ def get_equity_alpaca()->float:
 
 def get_equity_yfinance()->float:
     """
-    equity_t = CASH_t - Long_t + |Short_t|
+    equity_t = CASH_t + Long_t + Short_t
     """
     filename = os.path.join(util.context['portfolio_dir'], "actual_positions.parquet")
     if not os.path.exists(filename):

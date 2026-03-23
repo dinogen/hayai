@@ -3,6 +3,7 @@ and trading of the portfolio. It includes functions to add features to the data,
 apply the model, define weights, build new positions,
 define new quantities, and execute trades. """
 import os
+from datetime import date
 import pandas as pd
 import numpy as np
 import hayai_util as util
@@ -14,7 +15,7 @@ logger = hayai_log.create_logger(__name__)
 
 def add_time_features(df:pd.DataFrame)->pd.DataFrame:
     """ Add time-related features to the dataframe, and return it. """
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df['timestamp'] = pd.to_datetime(df['date'])
     df['date'] = df['timestamp'].dt.date
     df = df.set_index('date')
     df['day_of_week'] = df['timestamp'].dt.dayofweek
@@ -158,8 +159,13 @@ def volatility_regime(df):
     return df
 
 def reorder_columns(df)->pd.DataFrame:
-    """ Reorder columns in the dataframe, in alfanumeric order."""
-    cols = df.columns.tolist()
+    """ 
+    Reorder columns in the dataframe, in alfanumeric order.
+    But volume column is removed, because is bad for the model.
+    """
+    cols:list = df.columns.tolist()
+    if 'volume' in cols:
+        cols.remove('volume')
     cols.sort()
     df = df[cols]
     return df
@@ -229,7 +235,7 @@ def apply_prediction()->pd.DataFrame:
     df = pd.read_parquet(filename)
     df = df.reset_index(drop=True)
     df = df[df['date'] == df["date"].max()]
-    logger.info(f"Applying model to {len(df)} assets... with date={df['date'].max()}")
+    logger.info("Applying model to %d assets... with date=%s", len(df), df['date'].max())
     df_asset = df[['symbol', 'date']]
     df = df.drop(columns=['date','symbol','target'])
     # normalize df
@@ -274,7 +280,10 @@ def define_weight():
     return df
 
 def build_new_position():
-    """ Calculate positions, based on weights. """
+    """
+    Calculate positions, based on weights.
+    columns: symbol, weight_new, qty_old
+    """
     logger.info("Building new positions for the portfolio...")
     filename_in = os.path.join(util.context['portfolio_dir'], "weights.parquet")
     filename_out = os.path.join(util.context['portfolio_dir'], "position_new.parquet")
@@ -288,12 +297,14 @@ def build_new_position():
     df.to_parquet(filename_out, index=False)
 
 def define_new_quantity():
-    """ Calculate quantity for the new position. """
+    """ Calculate quantity for the new position. 
+    colunms: symbol, weight_new, qty_old, price, value_new, qty_new, qty_diff, qty_diff_perc
+    """
     logger.info("Defining new quantities for the portfolio...")
     filename_in = os.path.join(util.context['portfolio_dir'], "position_new.parquet")
     filename_out = os.path.join(util.context['portfolio_dir'], "position_new_qty.parquet")
     df = pd.read_parquet(filename_in)
-    df_price = dao.get_latest_trade_price(df['symbol'].tolist())
+    df_price = dao.get_latest_price(df['symbol'].tolist())
     df = pd.merge(df, df_price, on='symbol', how='outer').fillna(0)
     equity = dao.get_equity()
     capital = equity * util.context['risk_percentage']
@@ -304,6 +315,7 @@ def define_new_quantity():
     df['qty_diff_perc'] = df['qty_diff'] / denominator
     # remove rows where qty_diff is less than the minimum percentage in absolute value
     df = df[df['qty_diff_perc'].abs() > util.context['qty_diff_perc_min']]
+    df = df[['symbol', 'qty_old', 'qty_new', 'qty_diff', 'price', 'weight_new', 'value_new', 'qty_diff_perc']]
     df.to_parquet(filename_out, index=False)
     logger.info("New quantities defined, row count: %d", len(df))
 
@@ -351,3 +363,27 @@ def execution():
             elif qty_new > 0:
                 client.close_position(symbol)
                 trade.place_order_buy(client, symbol, qty_new)
+
+def init_portfolio(initial_amount:float)->None:
+    """
+    Initialize the portfolio by creating an empty actual position file with only cash.
+    """
+    filename_out = os.path.join(util.context['portfolio_dir'], "actual_positions.parquet")
+    df_actual = pd.DataFrame({
+        'date': [date.today()],
+        'symbol': [util.CASH_SYMBOL],
+        'qty': 1,
+        'price': initial_amount,
+        'value': initial_amount
+    })
+    for symbol in util.context['symbols']:
+        new_row ={
+            'date': date.today(),
+            'symbol': symbol,
+            'qty': 0,
+            'price': 0,
+            'value': 0
+        }
+        df_actual = pd.concat([df_actual, pd.DataFrame([new_row])], ignore_index=True)
+
+    df_actual.to_parquet(filename_out, index=False)

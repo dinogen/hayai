@@ -15,20 +15,25 @@ if __name__ == "__main__":
     args.add_argument('-s','--build-signals', help='Calculate signals and weights',action='store_true')
     args.add_argument('-n','--new-position', help='Calculate the new position of portfolio',action='store_true')
     args.add_argument('-e','--execute-trades', help='Execute trades based on the new position',action='store_true')
+    args.add_argument('--init', type=float, help='Initialize portfolio',default=0.0)
     portfolio_id = args.parse_args().portfolio_id
     ingestion = args.parse_args().ingestion
     build_signals = args.parse_args().build_signals
     new_position = args.parse_args().new_position
     execute_trades = args.parse_args().execute_trades
-    logger.info("Starting HAYAI with portfolio_id=%s, ingestion=%s, build_signals=%s, new_position=%s, execute_trades=%s", 
-                portfolio_id, ingestion, build_signals, new_position, execute_trades)
+    init_amount = args.parse_args().init
+    logger.info("Starting HAYAI with portfolio_id=%s, ingestion=%s, build_signals=%s, new_position=%s, execute_trades=%s, init_amount=%s", 
+                portfolio_id, ingestion, build_signals, new_position, execute_trades, init_amount)
     context = util.create_context(portfolio_id)
+    if init_amount > 0:
+        hayai_bo.init_portfolio(init_amount)
     if ingestion:
         logger.info("Starting data ingestion...")
         hayai_dao.fetch_quotes_portfolio(365*5)
         hayai_bo.add_features_portfolio()
-        util.create_position_report()
-        msg.send_file(os.path.join(context['portfolio_dir'],'position_report.html'), 
+        ok_report = util.create_position_report()
+        if ok_report:
+            msg.send_file(os.path.join(context['portfolio_dir'],'position_report.html'), 
                       caption='HAYAI position report with last prices.')
     if build_signals:
         logger.info("Calculating signals and weights...")
