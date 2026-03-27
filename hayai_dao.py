@@ -38,6 +38,7 @@ def fetch_quotes_alpaca(symbol:str,client:StockHistoricalDataClient)->pd.DataFra
 
 def fetch_quotes(symbol:str,client:StockHistoricalDataClient)->pd.DataFrame:
     """fetch historical quotes for a given symbol, with """
+    df = None
     if util.context['data_source'] == 'yfinance':
         df = fetch_quotes_yfinance(symbol)
     if util.context['data_source'] == 'alpaca':
@@ -87,8 +88,9 @@ def get_latest_price_yfinance(symbols:list[str])->pd.DataFrame:
     prices = []
     for symbol in symbols:
         ticker = yf.Ticker(symbol)
-        price = ticker.info['postMarketPrice']
-        if price is None:
+        if 'postMarketPrice' in ticker.info.keys():
+            price = ticker.info['postMarketPrice']
+        else:
             price = ticker.info['currentPrice']
         prices.append((symbol, price))
     df = pd.DataFrame(prices, columns=['symbol', 'price'])
@@ -117,15 +119,15 @@ def get_actual_position_alpaca()->pd.DataFrame:
 def get_actual_position_yfinance()->pd.DataFrame:
     """
     Get the actual position from a parquet file. 
-    Returns a dataframe with  columns: symbol, qty, price, value.
+    Returns a dataframe with  columns: symbol, qty_old, value_old.
     """
-    logger.info("Fetching actual positions from parquet file...")
-    filename = os.path.join(util.context['portfolio_dir'], "actual_positions.parquet")
-    if not os.path.exists(filename):
-        logger.warning("Positions file does not exist. Returning empty dataframe.")
-        return pd.DataFrame([[util.CASH_SYMBOL, 1, util.context['initial_capital'], util.context['initial_capital']]], 
-                            columns=['symbol', 'qty', 'price', 'value'])
-    df = pd.read_parquet(filename)
+    filename_in = os.path.join(util.context['portfolio_dir'], util.FILE_ACTUAL)
+    df = pd.read_parquet(filename_in)
+    max_date = df['date'].max()
+    df = df[df['date'] == max_date]
+    # get latest price for each symbol
+    df = df[['symbol', 'qty','value']]
+    df.columns = ['symbol', 'qty_old', 'value_old']
     return df
 
 def get_actual_position()->pd.DataFrame:

@@ -11,6 +11,14 @@ from alpaca.trading.client import TradingClient
 from alpaca.data.historical import StockHistoricalDataClient
 
 CASH_SYMBOL = 'MYCASH'
+FILE_FEATURES = 'f001_features.parquet'
+FILE_PREDICTIONS = 'f002_predictions.parquet'
+FILE_WEIGHTS = 'f003_weights.parquet'
+FILE_POSITION = 'f004_position.parquet'
+FILE_POSITION_NEW = 'f005_position_new.parquet'
+FILE_POSITION_NEW_QTY = 'f006_position_new_qty.parquet'
+FILE_ORDERS = 'f007_orders.parquet'
+FILE_ACTUAL = 'f008_actual.parquet'
 
 def create_context(portfolio_id:str)->dict[str, any]:
     global context
@@ -25,6 +33,8 @@ def create_context(portfolio_id:str)->dict[str, any]:
     if not os.path.exists(hist_dir):
         os.mkdir(os.path.join(portfolio_dir, 'hist'))
     df = pd.read_csv(os.path.join(portfolio_dir, 'portfolio.csv'),keep_default_na=False)
+    df = df[df['Country'] != '']
+    df = df[df['Sector']  != '']
     symbols = df['Symbol'].tolist()
 
     secret_global = configparser.ConfigParser()
@@ -48,14 +58,18 @@ def create_context(portfolio_id:str)->dict[str, any]:
     risk_percentage = conf_portfolio.getfloat('portfolio', 'risk_percentage', fallback=0.8)
     qty_diff_perc_min = conf_portfolio.getfloat('portfolio', 'qty_diff_perc_min', fallback=0.2)
     data_source = conf_portfolio.get('features', 'data_source', fallback='yfinance')
-    model_name = conf_portfolio.get('predictions', 'model', fallback='model')
-
+    if portfolio_id.startswith('model_'):
+        model_name = portfolio_id
+    else:
+        model_name = conf_portfolio.get('predictions', 'model', fallback='model')
 
     conf_model = configparser.ConfigParser()
     model_dir = os.path.join("data", model_name)
     conf_model.read(os.path.join(model_dir, 'conf.ini'))
     clip_min = conf_model.getfloat('predictions', 'clip_min', fallback=-5)
     clip_max = conf_model.getfloat('predictions', 'clip_max', fallback=5)
+    label_min = conf_model.getfloat('predictions', 'label_min')
+    label_max = conf_model.getfloat('predictions', 'label_max')
 
     secret_portfolio = configparser.ConfigParser()
     secret_portfolio.read(os.path.join(portfolio_dir, 'secret.ini'))
@@ -88,7 +102,9 @@ def create_context(portfolio_id:str)->dict[str, any]:
                 'telegram_bot_token': telegram_bot_token,
                 'telegram_chat_id': telegram_chat_id,
                 'chat:id': telegram_chat_id,
-                'data_source': data_source}
+                'data_source': data_source,
+                'label_min': label_min,
+                'label_max': label_max}
     return context
 
 def save_normalization_params(label_min:float, label_max:float)->bool:
@@ -118,23 +134,24 @@ def get_stock_historical_data_client()->StockHistoricalDataClient:
 def create_position_report()->bool:
     """Create a html file with the current positions, including symbol, quantity, price and value.
     Return true in success, false otherwise."""
-    filename_in = os.path.join(context['portfolio_dir'],'position_new_qty.parquet')
+    filename_in = os.path.join(context['portfolio_dir'],FILE_POSITION_NEW_QTY)
     filename_out = os.path.join(context['portfolio_dir'],'position_report.html')
     if not os.path.exists(filename_in):
         return False
     df = pd.read_parquet(filename_in)
     df = df[df['qty_new'] != 0]
-    ar = {'symbol':[],'qty':[], 'price':[],'value':[]}
     long = 0.0
     short = 0.0
-    html = "<table><tr><th>Symbol</th><th>Qty</th><th>Price</th><th>Value</th></tr>"
+    cash = 0.0
+    html = f"<h1>Portfolio Position Report at {date.today()}</h1><table><tr><th>Symbol</th><th>Qty</th><th>Price</th><th>Value</th></tr>"
     for index, row in df.iterrows():
         symbol = row['symbol']
+        if symbol == CASH_SYMBOL:
+            cash = row['value_new']
+            continue
         qty = row['qty_new']
-        df_price = pd.read_parquet(os.path.join(context['hist_dir'], f"{row['symbol']}.parquet"))
-        df_price = df_price.sort_values('timestamp', ascending=False).head(1)
-        price = df_price['close'].values[0]
-        value = qty * price
+        price = row['price']
+        value = row['value_new']
         if qty > 0:
             long += value
         else:
@@ -143,6 +160,8 @@ def create_position_report()->bool:
     html += f"<tr><td colspan='3'>Total Long</td><td>${long:.2f}</td></tr>"
     html += f"<tr><td colspan='3'>Total Short</td><td>${short:.2f}</td></tr>"
     html += f"<tr><td colspan='3'>Net Position</td><td>${long + short:.2f}</td></tr>"
+    html += f"<tr><td colspan='3'>Cash</td><td>${cash:.2f}</td></tr>"
+    html += f"<tr><td colspan='3'>Total Portfolio Value</td><td>${long + short + cash:.2f}</td></tr>"
     html += "</table>"
     with open(filename_out, 'w', encoding='utf-8') as f:
         f.write(html)

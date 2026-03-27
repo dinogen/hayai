@@ -28,13 +28,10 @@ if __name__ == "__main__":
     if init_amount > 0:
         hayai_bo.init_portfolio(init_amount)
     if ingestion:
+        ok_report = False
         logger.info("Starting data ingestion...")
         hayai_dao.fetch_quotes_portfolio(365*5)
         hayai_bo.add_features_portfolio()
-        ok_report = util.create_position_report()
-        if ok_report:
-            msg.send_file(os.path.join(context['portfolio_dir'],'position_report.html'), 
-                      caption='HAYAI position report with last prices.')
     if build_signals:
         logger.info("Calculating signals and weights...")
         hayai_bo.apply_prediction()
@@ -46,6 +43,12 @@ if __name__ == "__main__":
         logger.info("Calculating new position...")
         hayai_bo.build_new_position()
         hayai_bo.define_new_quantity()
+        hayai_bo.define_orders()
+        hayai_bo.update_actual_position()
+        ok_report = util.create_position_report()
+        if ok_report:
+            msg.send_file(os.path.join(context['portfolio_dir'],'position_report.html'), 
+                      caption='HAYAI position report with last prices.')
         logger.info("New position calculation finished.")
     if execute_trades:
         logger.info("Executing trades...")
