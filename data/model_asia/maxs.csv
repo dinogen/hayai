@@ -1,0 +1,58 @@
+col,value
+AUDUSD,0.7129209637641907
+BZ,103.13999938964844
+EURUSD,1.2017642259597778
+GBPUSD,1.382533073425293
+GC,5318.39990234375
+NZDUSD,0.6391900181770325
+USDCAD,1.4716999530792236
+USDCHF,0.9209700226783752
+USDJPY,161.60699462890625
+^DJI,50188.140625
+^GSPC,6978.60009765625
+^IXIC,23958.470703125
+^RUT,2718.77001953125
+^VIX1D,81.88999938964844
+close_range,inf
+country_China,1.0
+country_Hong Kong,1.0
+country_India,1.0
+country_Japan,1.0
+country_Kazakhstan,1.0
+country_Macau,1.0
+country_Malaysia,1.0
+country_Philippines,1.0
+country_Singapore,1.0
+country_South Korea,1.0
+country_Taiwan,1.0
+day_of_week,4.0
+hl_range,28.647058823529413
+index,1249.0
+log_return,5.00182471344843
+mom_10,116.105261904092
+mom_20,104.26316127948824
+mom_5,147.68421781694647
+mom_rank,18.59873496577506
+mom_vol_adj,68.0140646902989
+sector_Basic Materials,1.0
+sector_Consumer Discretionary,1.0
+sector_Consumer Staples,1.0
+sector_Energy,1.0
+sector_Finance,1.0
+sector_Health Care,1.0
+sector_Industrials,1.0
+sector_Miscellaneous,1.0
+sector_Real Estate,1.0
+sector_Technology,1.0
+sector_Telecommunications,1.0
+sector_Utilities,1.0
+target,5.0
+time_since_high,1249.0
+trend_50,23.5700250691266
+vol_10,2.6127770028844837
+vol_20,2.1384987040088372
+vol_ratio,1.4529181138011862
+vol_regime,2.559314826675257
+volume_shock,20.0
+volume_zscore,4.2485291572496005
+zscore_20,4.2485291572496005
