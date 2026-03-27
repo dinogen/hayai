@@ -131,11 +131,15 @@ def get_stock_historical_data_client()->StockHistoricalDataClient:
     client = StockHistoricalDataClient(api_key=apikey,secret_key=secret_key)
     return client
 
+def get_report_name()->str:
+    filename = os.path.join(context['portfolio_dir'], f"report_{context['portfolio_id']}.html")
+    return filename
+
 def create_position_report()->bool:
     """Create a html file with the current positions, including symbol, quantity, price and value.
     Return true in success, false otherwise."""
     filename_in = os.path.join(context['portfolio_dir'],FILE_POSITION_NEW_QTY)
-    filename_out = os.path.join(context['portfolio_dir'],'position_report.html')
+    filename_out =  get_report_name()
     if not os.path.exists(filename_in):
         return False
     df = pd.read_parquet(filename_in)
@@ -143,7 +147,9 @@ def create_position_report()->bool:
     long = 0.0
     short = 0.0
     cash = 0.0
-    html = f"<h1>Portfolio Position Report at {date.today()}</h1><table><tr><th>Symbol</th><th>Qty</th><th>Price</th><th>Value</th></tr>"
+    html = f"""<h1>Portfolio Position Report at {date.today()}</h1>
+    <h2>Portfolio: {context['portfolio_id']}</h2>
+    <table><tr><th>Symbol</th><th>Qty</th><th>Price</th><th>Value</th></tr>"""
     for index, row in df.iterrows():
         symbol = row['symbol']
         if symbol == CASH_SYMBOL:

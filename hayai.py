@@ -37,7 +37,7 @@ if __name__ == "__main__":
         hayai_bo.apply_prediction()
         hayai_bo.define_weight()
         logger.info("Signals and weights calculation finished.")
-        msg.send_file(hayai_log.log_filename(), 
+        msg.send_file(hayai_log.log_filename(),
                       caption='HAYAI log file after building signals and weights.')
     if new_position:
         logger.info("Calculating new position...")
@@ -47,8 +47,8 @@ if __name__ == "__main__":
         hayai_bo.update_actual_position()
         ok_report = util.create_position_report()
         if ok_report:
-            msg.send_file(os.path.join(context['portfolio_dir'],'position_report.html'), 
-                      caption='HAYAI position report with last prices.')
+            msg.send_file(util.get_report_name(),
+                      caption='HAYAI position report.')
         logger.info("New position calculation finished.")
     if execute_trades:
         logger.info("Executing trades...")
