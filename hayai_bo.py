@@ -200,6 +200,14 @@ def add_country(df):
 
     return df
 
+def clip_outliers(df:pd.DataFrame, columns:list)->pd.DataFrame:
+    """Clip outliers in specified columns of a dataframe."""
+    df = df.copy()
+    for column in columns:
+        lower = df[column].quantile(0.01)
+        upper = df[column].quantile(0.99)
+        df[column] = df[column].clip(lower, upper)
+    return df
 
 def add_features_portfolio()->bool:
     """ Add features to the portfolio, and save to parquet. """
@@ -219,6 +227,22 @@ def add_features_portfolio()->bool:
     df = volatility_regime(df)
     df = add_forex_features(df)
     df = add_index_features(df)
+    df = clip_outliers(df, ['log_return',
+                            'mom_5', 
+                            'mom_10', 
+                            'mom_20', 
+                            'mom_rank',
+                            'vol_10', 
+                            'vol_20', 
+                            'vol_ratio', 
+                            'vol_regime',
+                            'volume_shock',
+                            'zscore_20', 
+                            'trend_50', 
+                            'volume_zscore', 
+                            'zscore_20',
+                            'mom_vol_adj',
+                            'hl_range',])
     df = add_country(df)
     df = reorder_columns(df)
     # the close and low prices are not useful for the model, so we can drop them
