@@ -174,7 +174,7 @@ def get_equity()->float:
 
 def get_forex()-> pd.DataFrame:
     logger.info("Fetching forex data...")
-    symbols = ['GBPUSD=X', 'EURUSD=X', 'USDJPY=X', 'USDCAD=X', 'USDCHF=X', 'AUDUSD=X', 'NZDUSD=X','GC=F','BZ=F','CNYUSD=X']
+    symbols = util.context['forex']
     data = yf.download(symbols, period="5y", interval="1d")
     df = data['Close']
     df.columns = [col.split('=')[0] for col in df.columns]
@@ -184,7 +184,7 @@ def get_forex()-> pd.DataFrame:
 
 def get_index()-> pd.DataFrame:
     logger.info("Fetching index data...")
-    symbols = ['^GSPC', '^DJI', '^IXIC', '^RUT', '^VIX1D']
+    symbols = util.context['indexes']
     data = yf.download(symbols, period="5y", interval="1d")
     df = data['Close']
     df.columns = [col.split('=')[0] for col in df.columns]
