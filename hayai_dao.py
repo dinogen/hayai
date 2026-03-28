@@ -45,7 +45,7 @@ def fetch_quotes(symbol:str,client:StockHistoricalDataClient)->pd.DataFrame:
         df = fetch_quotes_alpaca(symbol, client)
     return df
 
-def fetch_quotes_portfolio(days:int)->bool:
+def fetch_quotes_portfolio()->bool:
     """ fetch historical quotes for all symbols in the portfolio, and save to parquet. """
     client:StockHistoricalDataClient = util.get_stock_historical_data_client()
     count = len(util.context['symbols'])
@@ -61,9 +61,9 @@ def fetch_quotes_portfolio(days:int)->bool:
                 continue
         logger.info("Fetching data from %s for %s (%d/%d)...", util.context['data_source'], symbol, i+1, count)
         df = fetch_quotes(symbol, client)        #df['symbol'] = symbol
-        df = df.reset_index()
+        df = df.reset_index(drop=True)
         # remove asset that have less than 1 year of data
-        if days > 365 and len(df) < 365:
+        if len(df) < 365:
             continue
         df.to_parquet(filename, index=False)
     return True

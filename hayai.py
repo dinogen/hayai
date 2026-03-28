@@ -31,7 +31,7 @@ if __name__ == "__main__":
         hayai_bo.init_portfolio(init_amount)
     if ingestion:
         logger.info("Starting data ingestion...")
-        hayai_dao.fetch_quotes_portfolio(365*5)
+        hayai_dao.fetch_quotes_portfolio()
         hayai_bo.add_features_portfolio()
     if build_signals:
         logger.info("Calculating signals and weights...")
