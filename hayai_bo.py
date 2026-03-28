@@ -242,7 +242,8 @@ def add_features_portfolio()->bool:
                             'volume_zscore', 
                             'zscore_20',
                             'mom_vol_adj',
-                            'hl_range',])
+                            'hl_range',
+                            'close_range',])
     df = add_country(df)
     df = reorder_columns(df)
     # the close and low prices are not useful for the model, so we can drop them

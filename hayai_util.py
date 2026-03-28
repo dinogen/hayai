@@ -37,6 +37,7 @@ def create_context(portfolio_id:str)->dict[str, any]:
     df = df[df['Sector']  != '']
     symbols = df['Symbol'].tolist()
 
+    # global secret.ini
     secret_global = configparser.ConfigParser()
     secret_global.read('secret.ini')
     telegram_api_id = secret_global.get('telegram', 'api_id')
@@ -44,6 +45,7 @@ def create_context(portfolio_id:str)->dict[str, any]:
     telegram_bot_token = secret_global.get('telegram', 'bot_token')
     telegram_chat_id = secret_global.get('telegram', 'chat_id')
 
+    # portfolio conf.ini
     conf_portfolio = configparser.ConfigParser()
     conf_portfolio.read(os.path.join(portfolio_dir, 'conf.ini'))
     volatility_window = conf_portfolio.getint('features', 'volatility_window', fallback=20)
@@ -63,6 +65,7 @@ def create_context(portfolio_id:str)->dict[str, any]:
     else:
         model_name = conf_portfolio.get('predictions', 'model', fallback='model')
 
+    # model conf.ini
     conf_model = configparser.ConfigParser()
     model_dir = os.path.join("data", model_name)
     conf_model.read(os.path.join(model_dir, 'conf.ini'))
@@ -70,7 +73,12 @@ def create_context(portfolio_id:str)->dict[str, any]:
     clip_max = conf_model.getfloat('predictions', 'clip_max', fallback=5)
     label_min = conf_model.getfloat('predictions', 'label_min')
     label_max = conf_model.getfloat('predictions', 'label_max')
+    forex = conf_model.get('features', 'forex', fallback='')
+    forex = [s.strip() for s in forex.split(',')] if forex else []
+    indexes = conf_model.get('features', 'indexes', fallback='')
+    indexes = [s.strip() for s in indexes.split(',')] if indexes else []
 
+    # portfolio secret.ini
     secret_portfolio = configparser.ConfigParser()
     secret_portfolio.read(os.path.join(portfolio_dir, 'secret.ini'))
     api_key = secret_portfolio.get('portfolio', 'api_key')
@@ -104,7 +112,9 @@ def create_context(portfolio_id:str)->dict[str, any]:
                 'chat:id': telegram_chat_id,
                 'data_source': data_source,
                 'label_min': label_min,
-                'label_max': label_max}
+                'label_max': label_max,
+                'forex': forex,
+                'indexes': indexes}
     return context
 
 def save_normalization_params(label_min:float, label_max:float)->bool:
