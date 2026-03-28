@@ -14,21 +14,22 @@ if __name__ == "__main__":
     args.add_argument('-i','--ingestion', help='Build an updated dataset for training the model',action='store_true')
     args.add_argument('-s','--build-signals', help='Calculate signals and weights',action='store_true')
     args.add_argument('-n','--new-position', help='Calculate the new position of portfolio',action='store_true')
+    args.add_argument('-r','--report', help='Generate a report',action='store_true')
     args.add_argument('-e','--execute-trades', help='Execute trades based on the new position',action='store_true')
     args.add_argument('--init', type=float, help='Initialize portfolio',default=0.0)
     portfolio_id = args.parse_args().portfolio_id
     ingestion = args.parse_args().ingestion
     build_signals = args.parse_args().build_signals
     new_position = args.parse_args().new_position
+    report = args.parse_args().report
     execute_trades = args.parse_args().execute_trades
     init_amount = args.parse_args().init
-    logger.info("Starting HAYAI with portfolio_id=%s, ingestion=%s, build_signals=%s, new_position=%s, execute_trades=%s, init_amount=%s", 
-                portfolio_id, ingestion, build_signals, new_position, execute_trades, init_amount)
+    logger.info("Starting HAYAI with portfolio_id=%s, ingestion=%s, build_signals=%s, new_position=%s, report=%s, execute_trades=%s, init_amount=%s", 
+                portfolio_id, ingestion, build_signals, new_position, report, execute_trades, init_amount)
     context = util.create_context(portfolio_id)
     if init_amount > 0:
         hayai_bo.init_portfolio(init_amount)
     if ingestion:
-        ok_report = False
         logger.info("Starting data ingestion...")
         hayai_dao.fetch_quotes_portfolio(365*5)
         hayai_bo.add_features_portfolio()
@@ -41,15 +42,18 @@ if __name__ == "__main__":
                       caption='HAYAI log file after building signals and weights.')
     if new_position:
         logger.info("Calculating new position...")
+        ok_report = False
         hayai_bo.build_new_position()
         hayai_bo.define_new_quantity()
         hayai_bo.define_orders()
         hayai_bo.update_actual_position()
-        ok_report = util.create_position_report()
+        logger.info("New position calculation finished.")
+    if report:
+        logger.info("Report generation.")
+        ok_report = hayai_bo.create_report()
         if ok_report:
             msg.send_file(util.get_report_name(),
-                      caption='HAYAI position report.')
-        logger.info("New position calculation finished.")
+                      caption='HAYAI performance report.')
     if execute_trades:
         logger.info("Executing trades...")
         hayai_bo.execution()

@@ -87,6 +87,8 @@ def get_latest_price_yfinance(symbols:list[str])->pd.DataFrame:
     logger.info("Fetching latest trade prices from Yahoo Finance...")
     prices = []
     for symbol in symbols:
+        if symbol == util.CASH_SYMBOL:
+            continue
         ticker = yf.Ticker(symbol)
         if 'postMarketPrice' in ticker.info.keys():
             price = ticker.info['postMarketPrice']

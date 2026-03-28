@@ -472,3 +472,16 @@ def init_portfolio(initial_amount:float)->None:
         df_actual = pd.concat([df_actual, pd.DataFrame([new_row])], ignore_index=True)
 
     df_actual.to_parquet(filename_out, index=False)
+
+
+def create_report()->bool:
+    filename_in = os.path.join(util.context['portfolio_dir'], util.FILE_POSITION_NEW_QTY)
+    df = pd.read_parquet(filename_in)
+    df = df.drop(columns=['qty_old', 'qty_diff','price'])
+    cash = df[df['symbol'] == util.CASH_SYMBOL]['value_new'].iloc[0]
+    df_price = dao.get_latest_price(df['symbol'].tolist())
+    df = pd.merge(df, df_price, on='symbol', how='outer').fillna(0)
+    df['value_new'] = df['qty_new'] * df['price']
+    df.loc[df['symbol'] == util.CASH_SYMBOL, 'value_new'] = cash
+    util.create_report(df)
+    return True

@@ -135,15 +135,11 @@ def get_report_name()->str:
     filename = os.path.join(context['portfolio_dir'], f"report_{context['portfolio_id']}.html")
     return filename
 
-def create_position_report()->bool:
+def create_report(df_new_qty:pd.DataFrame)->bool:
     """Create a html file with the current positions, including symbol, quantity, price and value.
     Return true in success, false otherwise."""
-    filename_in = os.path.join(context['portfolio_dir'],FILE_POSITION_NEW_QTY)
     filename_out =  get_report_name()
-    if not os.path.exists(filename_in):
-        return False
-    df = pd.read_parquet(filename_in)
-    df = df[df['qty_new'] != 0]
+    df = df_new_qty[df_new_qty['qty_new'] != 0]
     long = 0.0
     short = 0.0
     cash = 0.0
