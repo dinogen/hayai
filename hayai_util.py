@@ -73,9 +73,9 @@ def create_context(portfolio_id:str)->dict[str, any]:
     clip_max = conf_model.getfloat('predictions', 'clip_max', fallback=5)
     label_min = conf_model.getfloat('predictions', 'label_min')
     label_max = conf_model.getfloat('predictions', 'label_max')
-    forex = conf_model.get('features', 'forex', fallback='')
+    forex = conf_model.get('features', 'forex')
     forex = [s.strip() for s in forex.split(',')] if forex else []
-    indexes = conf_model.get('features', 'indexes', fallback='')
+    indexes = conf_model.get('features', 'indexes')
     indexes = [s.strip() for s in indexes.split(',')] if indexes else []
 
     # portfolio secret.ini
