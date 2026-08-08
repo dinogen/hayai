@@ -1,0 +1,137 @@
+# 07 — Operatività: Job Batch, Cron e Deploy su Raspberry Pi
+
+Questo documento descrive l'esecuzione dei **job batch notturni**, la configurazione
+delle **variabili d'ambiente (DeepSeek API key)**, la pianificazione **cron** e la
+guida passo-passo per il **deploy nativo su Raspberry Pi**.
+
+---
+
+## 1. Struttura dei Job Batch CLI
+
+I processi batch sono invocati tramite un'interfaccia a riga di comando unificata:
+```bash
+python -m app.cli <job_name> [--portfolio <code>]
+```
+
+### Elenco dei Job Notturni
+1. **`data`**: Scarica i prezzi giornalieri OHLCV, forex e indici da yfinance e fa l'upsert in `price_daily`, `fx_rate`, `index_value`.
+2. **`news`**: Scarica le notizie recenti per tutti gli strumenti attivi e le salva in `news`.
+3. **`sentiment`**: Invia le nuove notizie alle API di **DeepSeek**, ricava sentiment, confidence e rationale, e popola `news_sentiment`.
+4. **`predict`**: Esegue l'inferenza ONNX (`model_prediction`) utilizzando i modelli attivi in `model_registry`.
+5. **`signal`**: Combina `model_prediction` e `news_sentiment` per calcolare il segnale ibrido in `portfolio_signal`.
+6. **`recommend`**: Calcola i pesi finali long/short e popola `portfolio_recommendation`.
+7. **`summaries`**: Compila il riassunto in Markdown per portafoglio e lo salva in `news_summary`.
+
+---
+
+## 2. Configurazione e Credenziali (`.env`)
+
+Tutti i parametri sensibili e le chiavi API risiedono nel file `.env` nella root del progetto sul Raspberry Pi (mai versionato in Git):
+
+```env
+# Database MariaDB
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_NAME=hayai
+DB_USER=hayai
+DB_PASSWORD=tua_password_sicura
+
+# DeepSeek API
+DEEPSEEK_API_KEY=sk-...
+DEEPSEEK_API_BASE_URL=https://api.deepseek.com/v1
+
+# FastAPI / Uvicorn
+API_HOST=127.0.0.1
+API_PORT=8000
+```
+
+---
+
+## 3. Pianificazione Cron (Notturna)
+
+Crontab dell'utente `hayai` sul Raspberry Pi per l'esecuzione automatica notturna:
+
+```cron
+# Esecuzione sequenziale notturna (Lun-Ven alle 02:15)
+15 2 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli data >> logs/cron.log 2>&1
+30 2 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli news >> logs/cron.log 2>&1
+45 2 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli sentiment >> logs/cron.log 2>&1
+00 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli predict >> logs/cron.log 2>&1
+15 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli signal >> logs/cron.log 2>&1
+30 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli recommend >> logs/cron.log 2>&1
+45 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli summaries >> logs/cron.log 2>&1
+
+# Backup giornaliero del database alle 04:00
+0  4 * * *     cd /opt/hayai-new && scripts/backup.sh >> logs/backup.log 2>&1
+```
+
+---
+
+## 4. Guida al Deploy Nativo su Raspberry Pi
+
+### 1. Sistema Operativo e MariaDB
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y mariadb-server nginx python3-venv python3-pip build-essential
+sudo mysql_secure_installation
+sudo mariadb -e "CREATE DATABASE hayai CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+sudo mariadb -e "CREATE USER 'hayai'@'localhost' IDENTIFIED BY 'tua_password_sicura';"
+sudo mariadb -e "GRANT ALL PRIVILEGES ON hayai.* TO 'hayai'@'localhost'; FLUSH PRIVILEGES;"
+```
+
+### 2. Setup Ambiente Python
+```bash
+sudo mkdir -p /opt/hayai-new && sudo chown $USER /opt/hayai-new
+python3 -m venv /opt/hayai-new/venv
+/opt/hayai-new/venv/bin/pip install --upgrade pip
+/opt/hayai-new/venv/bin/pip install -r requirements.txt
+```
+
+### 3. Configurazione Servizio Systemd (FastAPI)
+Crea `/etc/systemd/system/hayai-api.service`:
+```ini
+[Unit]
+Description=HAYAI v2 FastAPI Service
+After=mariadb.service network-online.target
+
+[Service]
+User=hayai
+WorkingDirectory=/opt/hayai-new
+EnvironmentFile=/opt/hayai-new/.env
+ExecStart=/opt/hayai-new/venv/bin/uvicorn api.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+Abilita e avvia:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now hayai-api
+```
+
+### 4. Configurazione Nginx (Frontend + Reverse Proxy API)
+Crea `/etc/nginx/sites-available/hayai`:
+```nginx
+server {
+    listen 80;
+    server_name _;
+    root /var/www/hayai;
+    index index.html;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000/api/;
+        proxy_set_header Host $host;
+    }
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+Attiva il sito:
+```bash
+sudo ln -s /etc/nginx/sites-available/hayai /etc/nginx/sites-enabled/
+sudo rm /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
+```
+*(Copia i file della build di Angular in `/var/www/hayai`)*.
