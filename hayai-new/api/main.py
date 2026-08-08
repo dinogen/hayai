@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.db import execute_query
-from api.routers import portfolios
+from api.routers import portfolios, config
 
 app = FastAPI(
     title="HAYAI v2 API",
@@ -18,6 +18,7 @@ app.add_middleware(
 )
 
 app.include_router(portfolios.router, prefix="/api", tags=["Portfolios"])
+app.include_router(config.router, prefix="/api", tags=["Configuration"])
 
 @app.get("/api/health")
 def health_check():

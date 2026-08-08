@@ -26,6 +26,10 @@ export class ApiService {
     return this.http.get(`${this.baseUrl}/portfolios/${code}/recommendations/latest`);
   }
 
+  getPortfolioValue(code: string): Observable<any> {
+    return this.http.get(`${this.baseUrl}/portfolios/${code}/value`);
+  }
+
   getSignals(code: string): Observable<any> {
     return this.http.get(`${this.baseUrl}/portfolios/${code}/signals`);
   }
@@ -36,5 +40,13 @@ export class ApiService {
 
   getLatestSummary(code: string): Observable<any> {
     return this.http.get(`${this.baseUrl}/portfolios/${code}/summaries/latest`);
+  }
+
+  getPortfolioConfig(code: string): Observable<any> {
+    return this.http.get(`${this.baseUrl}/portfolios/${code}/config`);
+  }
+
+  resetPortfolio(code: string, initialCapital: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/portfolios/${code}/reset`, { initial_capital: initialCapital });
   }
 }

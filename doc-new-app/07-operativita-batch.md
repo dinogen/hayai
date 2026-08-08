@@ -20,7 +20,8 @@ python -m app.cli <job_name> [--portfolio <code>]
 4. **`predict`**: Esegue l'inferenza ONNX (`model_prediction`) utilizzando i modelli attivi in `model_registry`.
 5. **`signal`**: Combina `model_prediction` e `news_sentiment` per calcolare il segnale ibrido in `portfolio_signal`.
 6. **`recommend`**: Calcola i pesi finali long/short e popola `portfolio_recommendation`.
-7. **`summaries`**: Compila il riassunto in Markdown per portafoglio e lo salva in `news_summary`.
+7. **`nav`**: Mark-to-Market giornaliero: allinea le posizioni simulate alla raccomandazione e calcola NAV/cash in `portfolio_position` e `portfolio_cash`.
+8. **`summaries`**: Compila il riassunto in Markdown per portafoglio e lo salva in `news_summary`.
 
 ---
 
@@ -59,6 +60,7 @@ Crontab dell'utente `hayai` sul Raspberry Pi per l'esecuzione automatica notturn
 00 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli predict >> logs/cron.log 2>&1
 15 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli signal >> logs/cron.log 2>&1
 30 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli recommend >> logs/cron.log 2>&1
+35 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli nav >> logs/cron.log 2>&1
 45 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli summaries >> logs/cron.log 2>&1
 
 # Backup giornaliero del database alle 04:00

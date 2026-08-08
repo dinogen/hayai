@@ -10,6 +10,7 @@ from app.jobs.sentiment import run_sentiment_job
 from app.jobs.predict import run_predict_job
 from app.jobs.signal import run_signal_job
 from app.jobs.recommend import run_recommend_job
+from app.jobs.nav import run_nav_job
 from app.jobs.summaries import run_summaries_job
 
 logger = setup_logger("app.cli")
@@ -21,6 +22,7 @@ JOBS_MAP = {
     "predict": run_predict_job,
     "signal": run_signal_job,
     "recommend": run_recommend_job,
+    "nav": run_nav_job,
     "summaries": run_summaries_job,
 }
 

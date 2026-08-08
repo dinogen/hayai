@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
 
@@ -16,9 +16,27 @@ import { ApiService } from '../../core/services/api.service';
             <h1 class="font-display" style="font-size: 2rem; font-weight: 800; color: #0f172a; margin-top: 0.5rem; margin-bottom: 0.25rem;">COMPOSIZIONE CONSIGLIATA (LONG / SHORT)</h1>
             <p style="font-family: 'Rajdhani'; font-size: 1.15rem; color: #64748b; margin: 0;">Data Segnale: <strong style="font-family: 'JetBrains Mono'; color: #0f172a;">{{ recDate() || 'N/D' }}</strong> | Capitale Riferimento: <strong style="font-family: 'JetBrains Mono'; color: #0f172a;">€5,000.00</strong></p>
           </div>
-          <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155;">
-            <div>EQUITY INVESTIBILE (90%): <strong style="color: #0f172a;">€{{ (equityIndicativa() * riskPct()) | number:'1.2-2' }}</strong></div>
-            <div style="margin-top: 0.25rem;">MODELLO ATTIVO: <strong style="color: #4d7c0f;">Keras Quant + DeepSeek LLM</strong></div>
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: stretch;">
+            <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155;">
+              <div>EQUITY INVESTIBILE (90%): <strong style="color: #0f172a;">€{{ (equityIndicativa() * riskPct()) | number:'1.2-2' }}</strong></div>
+              <div style="margin-top: 0.25rem;">MODELLO ATTIVO: <strong style="color: #4d7c0f;">Keras Quant + DeepSeek LLM</strong></div>
+            </div>
+            <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
+              <div style="color: #94a3b8;">VALORE PORTAFOGLIO OGGI</div>
+              <strong style="color: #0f172a; font-size: 1.05rem;">{{ navValue() !== null ? ('€' + (navValue() | number:'1.2-2')) : 'N/D' }}</strong>
+            </div>
+            <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
+              <div style="color: #94a3b8;">P&L vs MESE SCORSO</div>
+              <strong [style.color]="pnl30() !== null && pnl30() >= 0 ? '#16a34a' : '#dc2626'" style="font-size: 1.05rem;">
+                {{ pnl30() !== null ? formatPnl(pnl30(), pnl30Pct()) : 'N/D' }}
+              </strong>
+            </div>
+            <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
+              <div style="color: #94a3b8;">P&L DA INIZIO (€5,000)</div>
+              <strong [style.color]="pnlInit() !== null && pnlInit() >= 0 ? '#16a34a' : '#dc2626'" style="font-size: 1.05rem;">
+                {{ pnlInit() !== null ? formatPnl(pnlInit(), pnlInitPct()) : 'N/D' }}
+              </strong>
+            </div>
           </div>
         </div>
       </div>
@@ -97,8 +115,20 @@ export class RecommendationsComponent implements OnInit {
   recDate = signal('');
   equityIndicativa = signal(5000);
   riskPct = signal(0.9);
+  value = signal<any>(null);
+
+  navValue = computed(() => this.value()?.nav ?? null);
+  pnl30 = computed(() => this.value()?.pnl_vs_30d ?? null);
+  pnl30Pct = computed(() => this.value()?.pnl_vs_30d_pct ?? null);
+  pnlInit = computed(() => this.value()?.pnl_vs_initial ?? null);
+  pnlInitPct = computed(() => this.value()?.pnl_vs_initial_pct ?? null);
 
   constructor(private api: ApiService) {}
+
+  formatPnl(amount: number, pct: number): string {
+    const sign = amount >= 0 ? '+' : '-';
+    return `${sign}€${Math.abs(amount).toFixed(2)} (${sign}${Math.abs(pct).toFixed(2)}%)`;
+  }
 
   ngOnInit() {
     this.api.getLatestRecommendations('main').subscribe({
@@ -108,6 +138,11 @@ export class RecommendationsComponent implements OnInit {
         this.equityIndicativa.set(res.equity_indicativa || 5000);
         this.riskPct.set(res.risk_percentage || 0.9);
       },
+      error: (err) => console.error(err)
+    });
+
+    this.api.getPortfolioValue('main').subscribe({
+      next: (res) => this.value.set(res),
       error: (err) => console.error(err)
     });
   }
