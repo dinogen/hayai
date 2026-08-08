@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
 import { RouterLink } from '@angular/router';
@@ -39,7 +39,7 @@ import { RouterLink } from '@angular/router';
         <div class="hud-card">
           <div style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;">Strumenti Monitorati</div>
           <div class="font-display" style="font-size: 1.75rem; font-weight: 700; color: #0f172a; margin-top: 0.5rem;">
-            {{ instrumentsCount }} Asset
+            {{ instrumentsCount() }} Asset
           </div>
           <p style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #64748b; margin-top: 0.5rem;">Azioni, ETF e Bond Yields</p>
         </div>
@@ -47,10 +47,10 @@ import { RouterLink } from '@angular/router';
         <div class="hud-card">
           <div style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;">Ultimo Job Notturno</div>
           <div class="font-display" style="font-size: 1.25rem; font-weight: 700; color: #0f172a; margin-top: 0.5rem;">
-            {{ lastJobName || 'Nessun job eseguito' }}
+            {{ lastJobName() || 'Nessun job eseguito' }}
           </div>
-          <p style="font-family: 'JetBrains Mono'; font-size: 0.75rem; font-weight: 600; color: #16a34a; margin-top: 0.5rem;" *ngIf="lastJobStatus">
-            STATO: {{ lastJobStatus | uppercase }}
+          <p style="font-family: 'JetBrains Mono'; font-size: 0.75rem; font-weight: 600; color: #16a34a; margin-top: 0.5rem;" *ngIf="lastJobStatus()">
+            STATO: {{ lastJobStatus() | uppercase }}
           </p>
         </div>
       </div>
@@ -72,7 +72,7 @@ import { RouterLink } from '@angular/router';
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let ins of instruments">
+              <tr *ngFor="let ins of instruments()">
                 <td style="font-weight: bold; color: #4d7c0f;">{{ ins.symbol }}</td>
                 <td>{{ ins.name || '—' }}</td>
                 <td>
@@ -90,18 +90,18 @@ import { RouterLink } from '@angular/router';
   `
 })
 export class DashboardComponent implements OnInit {
-  instruments: any[] = [];
-  instrumentsCount = 0;
-  lastJobName = '';
-  lastJobStatus = '';
+  instruments = signal<any[]>([]);
+  instrumentsCount = signal(0);
+  lastJobName = signal('');
+  lastJobStatus = signal('');
 
   constructor(private api: ApiService) {}
 
   ngOnInit() {
     this.api.getPortfolioDetail('main').subscribe({
       next: (res) => {
-        this.instruments = res.instruments || [];
-        this.instrumentsCount = this.instruments.length;
+        this.instruments.set(res.instruments || []);
+        this.instrumentsCount.set(this.instruments().length);
       },
       error: (err) => console.error(err)
     });
@@ -110,8 +110,8 @@ export class DashboardComponent implements OnInit {
       next: (res) => {
         if (res.recent_jobs && res.recent_jobs.length > 0) {
           const latest = res.recent_jobs[0];
-          this.lastJobName = latest.job_name;
-          this.lastJobStatus = latest.status;
+          this.lastJobName.set(latest.job_name);
+          this.lastJobStatus.set(latest.status);
         }
       },
       error: (err) => console.error(err)

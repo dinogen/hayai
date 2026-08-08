@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
 
@@ -16,31 +16,31 @@ import { ApiService } from '../../core/services/api.service';
 
       <div class="hud-card" style="padding: 2rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 1rem; margin-bottom: 1.5rem;">
-          <div style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #64748b;">DATA REPORT: <strong style="color: #0f172a;">{{ summaryDate || 'N/D' }}</strong></div>
+          <div style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #64748b;">DATA REPORT: <strong style="color: #0f172a;">{{ summaryDate() || 'N/D' }}</strong></div>
           <span style="padding: 0.25rem 0.75rem; background: #f7fee7; color: #365314; border: 1px solid #bef264; font-family: 'JetBrains Mono'; font-size: 0.75rem; font-weight: bold; text-transform: uppercase;">AI Generated</span>
         </div>
         <div style="font-family: 'JetBrains Mono'; font-size: 0.85rem; color: #1e293b; white-space: pre-wrap; line-height: 1.6; background: #f8fafc; padding: 1.5rem; border: 1px solid #cbd5e1; border-radius: 4px;">
-          {{ markdownContent }}
+          {{ markdownContent() }}
         </div>
       </div>
     </div>
   `
 })
 export class NewsComponent implements OnInit {
-  markdownContent = 'Caricamento riassunto in corso...';
-  summaryDate = '';
+  markdownContent = signal('Caricamento riassunto in corso...');
+  summaryDate = signal('');
 
   constructor(private api: ApiService) {}
 
   ngOnInit() {
     this.api.getLatestSummary('main').subscribe({
       next: (res) => {
-        this.markdownContent = res.markdown || 'Nessun riassunto disponibile.';
-        this.summaryDate = res.summary_date;
+        this.markdownContent.set(res.markdown || 'Nessun riassunto disponibile.');
+        this.summaryDate.set(res.summary_date);
       },
       error: (err) => {
         console.error(err);
-        this.markdownContent = 'Errore nel caricamento del riassunto.';
+        this.markdownContent.set('Errore nel caricamento del riassunto.');
       }
     });
   }

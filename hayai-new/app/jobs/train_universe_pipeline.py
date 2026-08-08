@@ -10,12 +10,10 @@ from tensorflow.keras.layers import Dense, Input
 from sklearn.model_selection import train_test_split
 
 from app.db import get_db_connection, execute_query
+from app.jobs.cache import load_cached, save_cached
 from app.logging_setup import setup_logger
 
 logger = setup_logger("app.jobs.train_universe_pipeline")
-
-CACHE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "tmp"))
-CACHE_TTL_SECONDS = 24 * 3600
 
 UNIVERSE_SYMBOLS = [
     # Mega Cap Tech & Growth
@@ -82,8 +80,6 @@ def download_historical_data(period="5y"):
         logger.warning("No active instruments found.")
         return
 
-    os.makedirs(CACHE_DIR, exist_ok=True)
-
     session = requests.Session()
     session.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     upsert_query = """
@@ -103,13 +99,8 @@ def download_historical_data(period="5y"):
             for idx, ins in enumerate(instruments):
                 inst_id = ins['id']
                 symbol = ins['symbol']
-                cache_file = os.path.join(CACHE_DIR, f"{symbol}.parquet")
-                df = None
 
-                if os.path.exists(cache_file) and (time.time() - os.path.getmtime(cache_file)) < CACHE_TTL_SECONDS:
-                    df = pd.read_parquet(cache_file)
-                    logger.info(f"Using cached parquet for {symbol} ({(time.time() - os.path.getmtime(cache_file)) / 3600:.1f}h old)")
-
+                df = load_cached(f"{symbol}_{period}")
                 if df is None:
                     try:
                         if idx > 0:
@@ -120,7 +111,7 @@ def download_historical_data(period="5y"):
                             logger.warning(f"No history for {symbol}")
                             continue
                         df = df.reset_index()
-                        df.to_parquet(cache_file, index=False)
+                        save_cached(f"{symbol}_{period}", df)
                         logger.info(f"Downloaded and cached {len(df)} bars for {symbol}")
                     except Exception as e:
                         logger.error(f"Error downloading {symbol}: {e}")

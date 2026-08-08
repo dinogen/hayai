@@ -28,7 +28,21 @@ Gira su uvicorn (`127.0.0.1:8000`) ed è esposta al browser tramite `nginx`.
 
 ## 2. Webapp Angular (SPA)
 
-Stack: **Angular 17+ (standalone components)**, TypeScript, servito da `nginx`.
+Stack: **Angular 22 (standalone components)**, TypeScript, servito da `nginx`.
+
+### 2.0 Change Detection con Signal (vincolo tecnico)
+
+Il frontend usa la **change detection basata sui signal** di Angular (`signal()`,
+`computed()`, `.set()`). Tutti i componenti che popolano la vista da chiamate HTTP
+(`HttpClient.subscribe`) devono **memorizzare i dati in `signal`** e leggere i
+valori nel template con le parentesi (`instruments()`).
+
+Motivo: con Angular 22 (zoneless / change detection moderna), le semplici
+assegnazioni a proprietà (`this.items = res.items`) non vengono rilevate dalla
+vista: i dati arrivano dall'API ma il template non si aggiorna. Con i signal,
+quando il valore cambia tramite `.set()`, Angular aggiorna automaticamente la
+vista. **Regola per i futuri componenti**: nessuna proprietà mutata in callback
+asincroni; usare sempre `signal` + `.set()` e `*ngFor="let x of items()"`.
 
 ### 2.1 Vista Principale del Martedì (Investment Thesis View)
 La schermata chiave della webapp è la pagina di **Composizione Consigliata** (`/portfolios/:code/recommendations`), pensata per essere aperta il martedì prima di parlare con il promotore finanziario.

@@ -58,3 +58,4 @@ Consulta SEMPRE questi documenti prima di scrivere o modificare qualsiasi codice
 3. **Rispetta le convenzioni**: codice in inglese, documentazione e commenti complessi in italiano (dove richiesto).
 4. **Chiedi in caso di ambiguità**: se un requisito non è chiaro nei documenti, fermati e chiedi prima di implementare.
 5. **Installa sempre i moduli mancanti**: puoi installare liberamente i moduli Python nel `venv` (`venv\Scripts\python -m pip install ...`) e i moduli Node.js in `hayai-new\web` (`npm.cmd install ...`). Se qualcosa ti manca, installalo invece di cercare workaround o bypass; in caso di dubbio sulla scelta del modulo, chiedi all'utente.
+6. **Shell disponibili**: puoi usare PowerShell, `bash`, `node` e `python`. Se PowerShell è limitato (es. rendering UTF-8, comandi Unix), usa il Git Bash di sistema: `C:\Users\semboli\AppData\Local\Programs\Git\git-bash.exe` (o `bash.exe` in `C:\Users\semboli\AppData\Local\Programs\Git\bin\`).

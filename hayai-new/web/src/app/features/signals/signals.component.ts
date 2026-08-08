@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
 
@@ -28,7 +28,7 @@ import { ApiService } from '../../core/services/api.service';
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let s of signals">
+              <tr *ngFor="let s of signals()">
                 <td style="font-weight: bold; color: #4d7c0f;">{{ s.symbol }}</td>
                 <td style="text-transform: uppercase; font-size: 0.75rem; color: #64748b;">{{ s.instrument_type }}</td>
                 <td style="text-align: right; font-weight: 600;">{{ s.quant_score | number:'1.3-3' }}</td>
@@ -48,13 +48,13 @@ import { ApiService } from '../../core/services/api.service';
   `
 })
 export class SignalsComponent implements OnInit {
-  signals: any[] = [];
+  signals = signal<any[]>([]);
 
   constructor(private api: ApiService) {}
 
   ngOnInit() {
     this.api.getSignals('main').subscribe({
-      next: (res) => this.signals = res || [],
+      next: (res) => this.signals.set(res || []),
       error: (err) => console.error(err)
     });
   }

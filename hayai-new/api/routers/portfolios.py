@@ -3,7 +3,7 @@ from app.db import execute_query
 
 router = APIRouter()
 
-@app_router_get_portfolios := router.get("/portfolios")
+@router.get("/portfolios")
 def get_portfolios():
     portfolios = execute_query("SELECT id, code, name, active, n_long, n_short, risk_percentage, initial_capital FROM portfolio WHERE active = 1")
     return portfolios
@@ -15,7 +15,7 @@ def get_portfolio_detail(code: str):
         raise HTTPException(status_code=404, detail="Portfolio not found")
     
     instruments = execute_query("""
-        i.id, i.symbol, i.name, i.instrument_type, i.currency
+        SELECT i.id, i.symbol, i.name, i.instrument_type, i.currency
         FROM instrument i
         JOIN portfolio_instrument pi ON i.id = pi.instrument_id
         JOIN portfolio p ON pi.portfolio_id = p.id
@@ -38,7 +38,7 @@ def get_latest_recommendations(code: str):
     risk_pct = float(port[0]['risk_percentage'])
 
     recs = execute_query("""
-        pr.rec_date, pr.weight, pr.side, pr.target_amount, pr.target_qty, pr.prev_weight,
+        SELECT pr.rec_date, pr.weight, pr.side, pr.target_amount, pr.target_qty, pr.prev_weight,
         i.symbol, i.name, i.instrument_type, i.currency,
         ps.quant_score, ps.llm_sentiment_modifier, ps.final_signal, ps.ai_rationale,
         pd.close as current_price
@@ -69,7 +69,7 @@ def get_portfolio_signals(code: str):
     
     portfolio_id = port[0]['id']
     signals = execute_query("""
-        ps.signal_date, ps.quant_score, ps.llm_sentiment_modifier, ps.final_signal, ps.ai_rationale,
+        SELECT ps.signal_date, ps.quant_score, ps.llm_sentiment_modifier, ps.final_signal, ps.ai_rationale,
         i.symbol, i.name, i.instrument_type
         FROM portfolio_signal ps
         JOIN instrument i ON ps.instrument_id = i.id
@@ -88,7 +88,7 @@ def get_portfolio_news(code: str):
     
     portfolio_id = port[0]['id']
     news = execute_query("""
-        n.id, n.title, n.publisher, n.link, n.published_at, n.summary,
+        SELECT n.id, n.title, n.publisher, n.link, n.published_at, n.summary,
         i.symbol, ns.sentiment, ns.confidence, ns.catalyst, ns.rationale as ai_rationale
         FROM news n
         JOIN instrument i ON n.instrument_id = i.id
@@ -109,7 +109,7 @@ def get_latest_summary(code: str):
     
     portfolio_id = port[0]['id']
     summary = execute_query("""
-        summary_date, markdown
+        SELECT summary_date, markdown
         FROM news_summary
         WHERE portfolio_id = %s
         ORDER BY summary_date DESC
