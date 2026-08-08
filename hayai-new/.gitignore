@@ -1,0 +1,21 @@
+# Environment and secrets
+.env
+secret.ini
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+env/
+
+# Data, logs, models (local runtime)
+data/
+logs/
+backups/
+models/*.onnx
+models/*.keras
+
+# IDE
+.vscode/
+.idea/

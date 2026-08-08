@@ -1,0 +1,12 @@
+pymysql==1.1.1
+python-dotenv==1.0.1
+requests==2.32.5
+pandas==2.2.3
+numpy==2.2.2
+yfinance==0.2.51
+fastapi==0.115.6
+uvicorn==0.34.0
+pydantic-settings==2.7.1
+onnxruntime==1.20.1
+pyarrow==23.0.1
+tf2onnx==1.17.0

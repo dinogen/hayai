@@ -16,7 +16,20 @@ All'inizio ci creiamo una lista curata di base (es. 25-30 strumenti altamente li
 - **ETF Settoriali/Geografici**: es. QQQ (Nasdaq), SPY (S&P 500), VGK (Europa), EEM (Emergenti).
 - **ETF Obbligazionari & Bond Yields**: es. BND (Aggregate Bond), TLT (Treasury Long-Term), e il rendimento del Treasury a 10 anni (`^TNX`).
 
-### 1.2 Stato al Giorno 1 (Bootstrap)
+### 1.2 Universo di Training vs Watchlist (chiarimento fondamentale)
+
+È importante distinguere tre concetti che spesso vengono confusi:
+
+1. **Universo di Training (~100 asset)**: un pool ampio di dati (es. 100 strumenti,
+   4-5 anni di storico) usato **solo per addestrare il modello Keras**. Non è il
+   portafoglio e non implica che tutti questi titoli vengano detenuti.
+2. **Watchlist (25-30 strumenti)**: l'universo investibile di partenza, associato
+   al portafoglio. È la lista su cui ogni notte vengono calcolati i segnali.
+3. **Posizioni detenute**: solo gli strumenti selezionati (top `n_long` / bottom
+   `n_short`) ricevono un peso > 0. Tutti gli altri hanno **peso 0** e restano in
+   watchlist come candidati per i rebalance futuri.
+
+### 1.3 Stato al Giorno 1 (Bootstrap)
 - **Liquidità (Cash)**: €5.000,00 (100%).
 - **Posizioni detenute**: Zero quote per tutti gli asset.
 - **Database**: Vengono inseriti gli strumenti in `instrument` e associati al portafoglio in `portfolio_instrument`. Il batch `data` scarica lo storico degli ultimi 5 anni per permettere al modello di calcolare le feature e le volatilità.

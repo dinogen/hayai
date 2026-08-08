@@ -24,9 +24,9 @@ python -m app.cli <job_name> [--portfolio <code>]
 
 ---
 
-## 2. Configurazione e Credenziali (`.env`)
+## 2. Configurazione e Credenziali (`.env` e `.env.example`)
 
-Tutti i parametri sensibili e le chiavi API risiedono nel file `.env` nella root del progetto sul Raspberry Pi (mai versionato in Git):
+Tutti i parametri sensibili e le chiavi API risiedono nel file `.env` nella root del progetto (inserito in `.gitignore` e mai versionato). Esiste un file di template versionato chiamato `.env.example` da cui partire:
 
 ```env
 # Database MariaDB

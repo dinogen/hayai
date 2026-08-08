@@ -1,0 +1,20 @@
+{
+  "feature_columns": [
+    "log_return",
+    "mom_5",
+    "mom_10",
+    "mom_20",
+    "vol_10",
+    "vol_20",
+    "vol_ratio",
+    "zscore_20",
+    "trend_50",
+    "vol_regime",
+    "mom_vol_adj",
+    "volume_shock"
+  ],
+  "label_min": -3.0,
+  "label_max": 3.0,
+  "clip_min": -3.0,
+  "clip_max": 3.0
+}

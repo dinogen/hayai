@@ -16,6 +16,11 @@ Ogni notte, dopo il calcolo del segnale ibrido in `portfolio_signal`, il batch c
    - I peggiori **`n_short`** strumenti (es. 3) con segnale negativo.
 3. **Normalizzazione**: la somma dei valori assoluti dei pesi è esattamente **1.0**.
 
+> **Nota importante**: la maggior parte degli strumenti dell'universo di training
+> non viene mai selezionata e ha **peso 0** (non viene detenuta). Il portafoglio
+> contiene solo gli strumenti top/bottom, mentre tutti gli altri restano come
+> candidati per i rebalance futuri.
+
 ---
 
 ## 2. Dimensionamento per il Capitale di €5.000

@@ -49,6 +49,7 @@ Consulta SEMPRE questi documenti prima di scrivere o modificare qualsiasi codice
 | `06-api-e-webapp.md` | API FastAPI REST + Viste Angular (Schede Tesi di Investimento) |
 | `07-operativita-batch.md` | CLI batch, pianificazione cron notturna, deploy nativo Raspberry Pi |
 | `08-portfolio-lifecycle.md` | Giorno 1 (bootstrap), Mark-to-Market giornaliero, gestione universo |
+| `09-ui-ux-design-system.md` | Design System "Cyber Light HUD" (temi, font futuristiche, card tesi) |
 
 ## 5. Regole Operative per gli Agenti
 
@@ -56,3 +57,4 @@ Consulta SEMPRE questi documenti prima di scrivere o modificare qualsiasi codice
 2. **Consulta `doc-new-app/` prima di agire**: ogni dubbio su tabelle, flussi o API trova risposta nei documenti di progetto.
 3. **Rispetta le convenzioni**: codice in inglese, documentazione e commenti complessi in italiano (dove richiesto).
 4. **Chiedi in caso di ambiguità**: se un requisito non è chiaro nei documenti, fermati e chiedi prima di implementare.
+5. **Installa sempre i moduli mancanti**: puoi installare liberamente i moduli Python nel `venv` (`venv\Scripts\python -m pip install ...`) e i moduli Node.js in `hayai-new\web` (`npm.cmd install ...`). Se qualcosa ti manca, installalo invece di cercare workaround o bypass; in caso di dubbio sulla scelta del modulo, chiedi all'utente.

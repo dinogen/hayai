@@ -28,3 +28,4 @@ Il sistema unisce l'approccio **Quant** (modelli matematici Keras per predire i 
 | `06-api-e-webapp.md` | API FastAPI & Webapp Angular | Endpoint REST in sola lettura, UI con schede tesi di investimento |
 | `07-operativita-batch.md` | Operatività & Deploy Raspberry | Job CLI, pianificazione cron, guide di installazione nativa |
 | `08-portfolio-lifecycle.md` | Ciclo di Vita del Portafoglio | Giorno 1 (bootstrap), evoluzione giornaliera, Mark-to-Market, gestione universo |
+| `09-ui-ux-design-system.md` | UI/UX Design System | Estetica "Cyber Light HUD", font futuristiche, palette colori e layout card |

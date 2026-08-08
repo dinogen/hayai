@@ -1,0 +1,119 @@
+/* HAYAI v2 - Cyber Light HUD Design System */
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Orbitron:wght@600;800&family=Rajdhani:wght@500;700;900&display=swap');
+
+:root {
+  --bg-primary: #f8fafc;
+  --bg-card: #ffffff;
+  --border-tech: #cbd5e1;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --accent-lime: #65a30d;
+  --accent-lime-hover: #4d7c0f;
+  --accent-lime-bg: #f7fee7;
+  --success: #16a34a;
+  --danger: #dc2626;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  font-family: 'Rajdhani', sans-serif;
+  margin: 0;
+  padding: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320' viewBox='0 0 320 320'%3E%3Cg fill='none' stroke='%23cbd5e1' stroke-opacity='0.45' stroke-width='1'%3E%3Cpath d='M0 40h40v40H0zM120 120h60v60h-60zM240 240h60v60h-60z'/%3E%3Ccircle cx='40' cy='40' r='4'/%3E%3Ccircle cx='180' cy='120' r='4'/%3E%3Ccircle cx='120' cy='180' r='4'/%3E%3Ccircle cx='300' cy='240' r='4'/%3E%3Cpath d='M40 80v40h80M180 180v60h60'/%3E%3Cpath d='M0 160h60v40H0z'/%3E%3Ccircle cx='60' cy='180' r='4'/%3E%3Cpath d='M300 80h20v40'/%3E%3Ccircle cx='320' cy='120' r='4'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.font-display {
+  font-family: 'Orbitron', sans-serif;
+}
+
+.font-tech {
+  font-family: 'Rajdhani', sans-serif;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* HUD Card with cut corners */
+.hud-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-tech);
+  position: relative;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  border-radius: 4px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.hud-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  border-top: 2px solid var(--accent-lime);
+  border-left: 2px solid var(--accent-lime);
+}
+
+.hud-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border-bottom: 2px solid var(--border-tech);
+  border-right: 2px solid var(--border-tech);
+}
+
+/* Custom button cyber */
+.btn-cyber {
+  background-color: var(--accent-lime);
+  color: #ffffff;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  padding: 0.65rem 1.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  box-shadow: 0 2px 4px rgba(101, 163, 13, 0.2);
+}
+
+.btn-cyber:hover {
+  background-color: var(--accent-lime-hover);
+}
+
+/* Table styling */
+.hud-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.875rem;
+}
+
+.hud-table th {
+  background-color: #f1f5f9;
+  color: var(--text-muted);
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 2px solid var(--border-tech);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.hud-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  color: var(--text-main);
+}
+
+.hud-table tr:hover {
+  background-color: #f8fafc;
+}
