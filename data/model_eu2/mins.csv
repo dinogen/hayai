@@ -1,0 +1,65 @@
+col,value
+AUDEUR,0.5422400236129761
+BZ,58.91999816894531
+CNYEUR,0.11820100247859955
+EURCAD,1.289989948272705
+EURCHF,0.9001200199127197
+EURJPY,124.99320220947266
+EURUSD,0.9596191644668579
+FTSEMIB.MI,20353.0
+GBPEUR,1.1144299507141113
+GC,1623.300048828125
+NZDEUR,0.48464998602867126
+^FCHI,5676.8701171875
+^N100,1101.22998046875
+^STOXX50E,3279.0400390625
+^XDE,95.94999694824219
+close_range,0.0
+country_Belgium,0.0
+country_Cyprus,0.0
+country_Denmark,0.0
+country_Finland,0.0
+country_France,0.0
+country_Germany,0.0
+country_Greece,0.0
+country_Guernsey,0.0
+country_Ireland,0.0
+country_Italy,0.0
+country_Jersey,0.0
+country_Luxembourg,0.0
+country_Netherlands,0.0
+country_Norway,0.0
+country_Spain,0.0
+country_Sweden,0.0
+country_Switzerland,0.0
+country_United Kingdom,0.0
+day_of_week,0.0
+hl_range,0.0
+log_return,-0.27400202080617453
+mom_10,-0.3279296877989239
+mom_20,-0.4493062865970763
+mom_5,-0.23966946122131783
+mom_rank,-2.517234438379624
+mom_vol_adj,-5.312287981793408
+sector_Basic Materials,0.0
+sector_Consumer Discretionary,0.0
+sector_Consumer Staples,0.0
+sector_Energy,0.0
+sector_Finance,0.0
+sector_Health Care,0.0
+sector_Industrials,0.0
+sector_Miscellaneous,0.0
+sector_Real Estate,0.0
+sector_Technology,0.0
+sector_Telecommunications,0.0
+sector_Utilities,0.0
+target,-5.0
+time_since_high,0.0
+trend_50,-0.4809947121598081
+vol_10,0.0027180445059064124
+vol_20,0.0034242456530618796
+vol_ratio,0.24516579829942176
+vol_regime,0.23928331919715137
+volume_shock,0.0
+volume_zscore,-1.5550315624610145
+zscore_20,-2.635342804156205

@@ -228,18 +228,18 @@ def add_features_portfolio()->bool:
     df = add_forex_features(df)
     df = add_index_features(df)
     df = clip_outliers(df, ['log_return',
-                            'mom_5', 
-                            'mom_10', 
-                            'mom_20', 
+                            'mom_5',
+                            'mom_10',
+                            'mom_20',
                             'mom_rank',
-                            'vol_10', 
-                            'vol_20', 
-                            'vol_ratio', 
+                            'vol_10',
+                            'vol_20',
+                            'vol_ratio',
                             'vol_regime',
                             'volume_shock',
-                            'zscore_20', 
-                            'trend_50', 
-                            'volume_zscore', 
+                            'zscore_20',
+                            'trend_50',
+                            'volume_zscore',
                             'zscore_20',
                             'mom_vol_adj',
                             'hl_range',
@@ -342,6 +342,7 @@ def define_new_quantity():
     df['value_new'] = df['weight_new'] * capital
     df['qty_new'] = (df['value_new'] / df['price']).round()
     df['qty_diff'] = df['qty_new'] - df['qty_old']
+    # to set the percentage, use the old qty if available, else use the new qty.
     denominators = np.where(df['qty_old'] != 0, df['qty_old'], df['qty_new'])
     df['qty_diff_perc'] = df['qty_diff'] / denominators
     df['qty_diff_perc'] = df['qty_diff_perc'].fillna(0)
@@ -403,11 +404,11 @@ def define_orders():
                 orders.append([symbol, 'BUY', abs(qty_diff), price])
         elif qty_old > 0 and qty_new < 0: # long -> short
             orders.append([symbol, 'CLOSE', qty_old, price]) # closing the old
-            orders.append([symbol, 'SELL', abs(qty_new), price]) 
+            orders.append([symbol, 'SELL', abs(qty_new), price])
         elif qty_old < 0 and qty_new > 0: # short -> long
             orders.append([symbol, 'CLOSE', qty_old, price]) # closing the old
-            orders.append([symbol, 'BUY', qty_new, price]) 
-            
+            orders.append([symbol, 'BUY', qty_new, price])
+
     df = pd.DataFrame(orders, columns=['symbol', 'operation', 'qty', 'price'])
     df.to_parquet(filename_out, index=False)
     logger.info("Orders defined, row count: %d", len(df))
@@ -424,7 +425,7 @@ def update_actual_position():
     df = df[['date', 'symbol', 'qty', 'price', 'value']]
     df_actual = pd.read_parquet(filename_out)
     # if today exixts, I replace it.
-    df_actual = df_actual[df_actual['date'] != date.today()] 
+    df_actual = df_actual[df_actual['date'] != date.today()]
     df_actual = pd.concat([df_actual, df], ignore_index=True)
     df_actual = df_actual.sort_values(by='date').reset_index(drop=True)
     df_actual.to_parquet(filename_out, index=False)
