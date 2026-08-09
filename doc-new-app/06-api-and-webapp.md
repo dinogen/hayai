@@ -18,11 +18,22 @@ Gira su uvicorn (`127.0.0.1:8000`) ed è esposta al browser tramite `nginx`.
 |---|---|---|
 | `/api/health` | GET | Stato del servizio e data dell'ultimo job in `job_run` |
 | `/api/portfolios` | GET | Elenco dei portafogli attivi |
-| `/api/portfolios/{code}` | GET | Dettaglio del portafoglio (parametri, strumenti associati) |
+| `/api/portfolios/{code}` | GET | Dettaglio del portafoglio (parametri, strumenti associati). Ogni strumento include anche `sector`, `country`, `area` e `metadata_date` (metadati dal job `metadata`). Filtro opzionale `?area=eu|usa|asia|emerging|other` per limitare gli strumenti a una specifica area geografica |
 | `/api/portfolios/{code}/recommendations/latest` | GET | **Composizione consigliata (ultima data)**: pesi, side, importi, variazioni vs settimana precedente |
+| `/api/portfolios/{code}/holdings` | GET | **Portafoglio attuale**: posizioni detenute (long/short), P&L, cash, NAV, watchlist e ultime raccomandazioni |
+| `/api/portfolios/{code}/holdings/save` | POST | **Salvataggio portafoglio attuale**: applica lo stato desiderato (diff → `portfolio_trade` → snapshot posizioni → ricalcolo cash) |
 | `/api/portfolios/{code}/signals` | GET | Segnali ibridi (Quant Score + Sentiment IA) per strumento |
 | `/api/portfolios/{code}/news` | GET | Notizie recenti collegate agli strumenti del portafoglio |
 | `/api/portfolios/{code}/summaries/latest` | GET | **Riassunto Markdown giornaliero** generato da DeepSeek |
+| `/api/portfolios/{code}/config` | POST | **Aggiornamento configurazione**: body `{"max_assets": N}` (intero ≥ 1); aggiorna il cap massimo asset del portafoglio e restituisce i parametri correnti |
+
+### Metadati strumento (sector / country / area)
+
+Il job batch `metadata` (cron, dopo il job `data`) popola su `instrument`:
+- `sector`: settore merceologico per le azioni; per ETF/bond_yield è il comparto (`category` di yfinance).
+- `country`: paese dal profilo yfinance (per molti ETF e i bond yield il campo è assente → `NULL`).
+- `area`: `usa`, `eu`, `asia`, `emerging` o `other`, derivata dalla `country` con priorità **Emergenti > EU > USA > Asia > Altro**; quando la `country` manca si usa una mappatura manuale per simbolo (`app/area.py`).
+- `metadata_date`: data dell'ultimo fetch (aggiornamento automatico dopo 30 giorni, forzabile con `--force`).
 
 ---
 
@@ -67,5 +78,6 @@ Ogni asset raccomandato è presentato sotto forma di **Scheda Tesi di Investimen
 
 ### 2.2 Altre Viste della SPA
 1. **Dashboard (`/`)**: Panoramica di tutti i portafogli, stato dei job notturni (successo/fallimento) e data dell'ultimo aggiornamento dati.
-2. **Tabella Segnali (`/portfolios/:code/signals`)**: Elenco completo di tutti gli strumenti del portafoglio con il dettaglio di come il punteggio matematico è stato corretto dal sentiment dell'IA.
-3. **Notizie & Riassunti (`/portfolios/:code/news`)**: Visualizzatore Markdown formattato dei riassunti giornalieri creati da DeepSeek, con link diretti alle fonti originali di yfinance.
+2. **Portafoglio Attuale (`/portfolio`)**: Vista e **modifica manuale** delle posizioni effettivamente detenute (long/short). Tabella editor con `qty` e `avg_price` modificabili, toggle side, chiusura posizione e apertura di nuove posizioni dalla watchlist. Pulsante **"Applica Raccomandazioni del Modello"** (popola l'editor con la composizione target alla lettera) e pulsante **"SALVA"** che persiste via `POST /holdings/save`. Short rappresentato con `qty` negativa; P&L posizione = `qty × (close − avg_price)`.
+3. **Tabella Segnali (`/portfolios/:code/signals`)**: Elenco completo di tutti gli strumenti del portafoglio con il dettaglio di come il punteggio matematico è stato corretto dal sentiment dell'IA.
+4. **Notizie & Riassunti (`/portfolios/:code/news`)**: Visualizzatore Markdown formattato dei riassunti giornalieri creati da DeepSeek, con link diretti alle fonti originali di yfinance.

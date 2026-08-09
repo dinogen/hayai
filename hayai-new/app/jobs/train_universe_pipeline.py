@@ -33,28 +33,54 @@ UNIVERSE_SYMBOLS = [
     "EEM", "EFA", "EWJ", "FXI", "ASHR", "VGK", "EWZ", "INDA", "VWO", "IAU"
 ]
 
+def _fetch_instrument_meta(symbol, session):
+    """Fetch (name, instrument_type, currency) from yfinance, with graceful fallback."""
+    try:
+        info = yf.Ticker(symbol, session=session).info
+    except Exception as e:
+        logger.warning(f"Could not fetch metadata for {symbol}: {e}")
+        info = {}
+
+    name = info.get("shortName") or info.get("longName") or symbol
+
+    quote_type = (info.get("quoteType") or "").upper()
+    if quote_type == "ETF":
+        inst_type = "etf"
+    elif quote_type == "INDEX" or symbol.startswith("^"):
+        inst_type = "bond_yield"
+    else:
+        inst_type = "stock"
+
+    currency = info.get("currency") or "USD"
+    return name, inst_type, currency
+
 def seed_universe():
     logger.info(f"Seeding {len(UNIVERSE_SYMBOLS)} symbols into database...")
+    session = requests.Session()
+    session.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
             # Ensure portfolio 'main' exists
             cursor.execute("SELECT id FROM portfolio WHERE code = 'main'")
             row = cursor.fetchone()
             if not row:
-                cursor.execute("INSERT INTO portfolio (code, name, cash_balance) VALUES ('main', 'Main Portfolio', 5000.00)")
+                cursor.execute("INSERT INTO portfolio (code, name, initial_capital) VALUES ('main', 'Main Portfolio', 5000.00)")
                 portfolio_id = cursor.lastrowid
             else:
                 portfolio_id = row['id']
 
-            for symbol in UNIVERSE_SYMBOLS:
+            for idx, symbol in enumerate(UNIVERSE_SYMBOLS):
                 # Insert instrument if not exists
                 cursor.execute("SELECT id FROM instrument WHERE symbol = %s", (symbol,))
                 ins_row = cursor.fetchone()
                 if not ins_row:
-                    inst_type = 'bond_yield' if symbol.startswith('^') or symbol in ['TLT', 'IEF'] else 'stock'
+                    if idx > 0:
+                        time.sleep(0.5)
+                    name, inst_type, currency = _fetch_instrument_meta(symbol, session)
                     cursor.execute(
-                        "INSERT INTO instrument (symbol, name, instrument_type, active) VALUES (%s, %s, %s, 1)",
-                        (symbol, symbol, inst_type)
+                        "INSERT INTO instrument (symbol, name, instrument_type, currency, active) VALUES (%s, %s, %s, %s, 1)",
+                        (symbol, name, inst_type, currency)
                     )
                     inst_id = cursor.lastrowid
                 else:

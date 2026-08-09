@@ -43,11 +43,12 @@ Il sistema non è statico: ogni giorno la composizione target può variare in ba
 ### 2.1 Il Ciclo Giornaliero di Valutazione (Mark-to-Market)
 Ogni notte, il batch esegue questi passaggi finanziari:
 1. **Aggiornamento Prezzi**: Scarica la chiusura del giorno per tutti gli strumenti dell'universo (`price_daily`).
-2. **Calcolo Segnali**: Esegue Keras + DeepSeek → `portfolio_signal`.
-3. **Ottimizzazione Pesi**: Seleziona i top `n_long` e bottom `n_short`, normalizzando i pesi a 1.0 (`portfolio_recommendation`).
-4. **Valutazione del Portafoglio (NAV)**:
-   - Se il portafoglio ha posizioni aperte, il sistema calcola il valore di mercato attuale di ciascuna quota (`quantità × prezzo odierno`).
-   - Somma la liquidità disponibile.
+2. **Metadati Asset** (job `metadata`, con cadenza meno frequente es. settimanale): aggiorna `sector`, `country` e `area` degli strumenti dalla watchlist via yfinance (solo se mancanti o più vecchi di 30 giorni). L'`area` deriva dalla `country` con priorità Emergenti > EU > USA > Asia > Altro, con fallback manuale per simbolo per ETF/bond yield.
+3. **Calcolo Segnali**: Esegue Keras + DeepSeek → `portfolio_signal`.
+4. **Ottimizzazione Pesi**: Seleziona i top `n_long` e bottom `n_short`, normalizzando i pesi a 1.0 (`portfolio_recommendation`).
+5. **Valutazione del Portafoglio (NAV — solo mark-to-market)**:
+   - Se il portafoglio ha posizioni aperte, il sistema calcola il valore di mercato attuale di ciascuna quota (`qty × prezzo odierno`) **senza modificare quantità e costo di carico**: le posizioni del portafoglio attuale sono gestite manualmente dalla pagina "Portafoglio Attuale".
+   - Somma la liquidità disponibile (`portfolio_cash`, aggiornata solo dalle operazioni manuali).
    - Determina il **Valore Totale del Portafoglio (NAV)** aggiornato a quella data.
 
 ---
@@ -59,7 +60,12 @@ Per permettere alla webapp di mostrare ogni giorno la composizione e il valore d
 1. **`portfolio_cash`**: Saldo della liquidità disponibile.
 2. **`portfolio_position`**: Le quote effettivamente "detenute" nel portafoglio simulato (o sincronizzate con le decisioni prese con il promotore).
 
-Quando il martedì decidi di seguire le raccomandazioni del sistema e compri/vendi con il promotore, registri l'operazione (o il sistema la allinea alla raccomandazione target). Da quel momento in poi, la webapp calcola automaticamente il **Mark-to-Market giornaliero**.
+Quando il martedì decidi di seguire le raccomandazioni del sistema e compri/vendi con il promotore, registri l'operazione nella pagina **"Portafoglio Attuale"** (apertura/chiusura/modifica posizioni, o il pulsante "Applica Raccomandazioni del Modello" per allineare alla target alla lettera). Ogni operazione viene salvata in `portfolio_trade` e il cash ricalcolato; da quel momento in poi, la webapp calcola automaticamente il **Mark-to-Market giornaliero** senza alterare le posizioni manuali.
+
+> **Regola short interi**: le posizioni short sono sempre espresse in **quote intere**
+> (arrotondamento aritmetico half-up, `floor(x + 0.5)`), sia nelle raccomandazioni sia
+> nel portafoglio attuale. Se la quantità short arrotondata è **0**, la posizione si
+> considera chiusa (la raccomandazione non viene emessa / la posizione viene azzerata).
 
 ---
 

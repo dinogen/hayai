@@ -2,9 +2,12 @@
 
 > **Natura del progetto**: esperimento personale da **€5.000**.
 > **Mai soldi veri**: il portafoglio tracciato è una **simulazione (paper trading)**.
-> Il sistema allinea ogni notte le posizioni simulate alla raccomandazione del modello
-> (Keras Quant + DeepSeek LLM) e le rivaluta ogni giorno ai prezzi di mercato reali.
-> Lo scopo è **testare il modello in tempo reale**: se il modello ha ragione il NAV sale,
+> Le posizioni del portafoglio attuale vengono gestite **manualmente** dalla pagina
+> "Portafoglio Attuale" (apertura/chiusura/modifica long e short) oppure allineate
+> alla raccomandazione del modello (Keras Quant + DeepSeek LLM) tramite il pulsante
+> "Applica Raccomandazioni". Il job notturno `nav` le rivaluta ogni giorno ai prezzi
+> di mercato reali (**mark-to-market**) senza alterare le quantità. Lo scopo è
+> **testare il modello in tempo reale**: se il modello ha ragione il NAV sale,
 > se sbaglia scende. Il capitale di riferimento €5.000 è il metro di misura, non denaro reale.
 
 ---
@@ -27,20 +30,23 @@ Questo documento definisce il piano per aggiungere:
 ## 2. Modello di Simulazione
 
 - **Capitale iniziale**: €5.000,00 (100% cash al Giorno 1).
-- **Investibile (equity)**: 90% → €4.500,00 (`risk_percentage`).
-- **Cash (buffer)**: 10% → €500,00.
-- Ogni notte il batch calcola la composizione consigliata (`recommend`) e poi `nav`:
-  - **Posizioni**: per ogni strumento raccomandato, `qty = target_qty`.
-  - **Costo di carico** (`avg_price`): prezzo di chiusura alla data di raccomandazione.
-  - **Mark-to-Market**: `market_value = qty × prezzo di chiusura più recente`.
+- **Cash**: deriva dalle operazioni eseguite: `cash = initial_capital + Σ amount(trade)`.
+  In `portfolio_trade`, `amount` è il flusso di cassa con segno: acquisto/chiusura short
+  negativo, vendita/apertura short positivo. Al bootstrapping (Giorno 1) il cash è
+  l'intero capitale iniziale.
+- **Posizioni** (`portfolio_position`): `qty` **positiva = long**, `qty` **negativa = short**.
+  - `avg_price` (costo di carico): prezzo medio ponderato di ingresso.
+  - **Mark-to-Market**: `market_value = qty × close`.
 - **NAV (Valore del Portafoglio)**: `NAV = cash_balance + Σ market_value`.
-- **Coerenza al Giorno 1**: NAV = €500 cash + €4.500 posizioni = **€5.000,00** esatti.
+- **P&L posizione**: `qty × (close − avg_price)` (corretto sia per long che per short).
 
-### 2.1 Rebalance automatico
-Quando di notte la composizione consigliata cambia, la simulazione compra/vende per allinearsi
-al nuovo target (es. se un titolo esce dalle top long viene venduto al prezzo di quel giorno).
-Il NAV riflette quindi "seguire il modello alla lettera". I rebalance **non sono retroattivi**:
-la serie storica NAV è "come riportata" giorno per giorno.
+### 2.1 Applicazione delle raccomandazioni (manuale)
+Il job notturno **non allinea più** le posizioni al modello. L'allineamento avviene
+solo quando l'utente preme **"Applica Raccomandazioni del Modello"** nella pagina
+"Portafoglio Attuale": il sistema genera i trade necessari per portare le posizioni
+alla composizione target (`qty = target_qty`, side del modello), chiudendo tutto ciò
+che non è in target. I rebalance **non sono retroattivi**: la serie storica NAV è
+"come riportata" giorno per giorno.
 
 ### 2.2 Baseline P&L
 - **P&L vs Mese**: confronto con lo snapshot NAV di ~30 giorni prima (o `initial_capital` se l'esperimento è più giovane).
@@ -50,18 +56,17 @@ la serie storica NAV è "come riportata" giorno per giorno.
 
 ## 3. Backend — Nuovo Job `app/jobs/nav.py`
 
-Nuova funzione `run_nav_job(portfolio_code: str = "main") -> dict`:
+Nuova funzione `run_nav_job(portfolio_code: str = "main") -> dict` (**solo mark-to-market**):
 
-1. Legge il portafoglio (`initial_capital`, `risk_percentage`) e l'ultima data di raccomandazione.
-2. Calcola `cash_balance = initial_capital − invested` dove `invested = initial_capital × risk_percentage`.
-3. Per ogni strumento dell'ultima raccomandazione recupera:
-   - `target_qty` (da `portfolio_recommendation`);
-   - `close` alla `rec_date` (costo di carico / `avg_price`);
-   - `close` più recente (mark-to-market).
-4. Upsert in `portfolio_position` per `pos_date = CURDATE()`:
+1. Legge il portafoglio (`initial_capital`) e le **posizioni attuali** (ultima `pos_date`, `qty != 0`).
+2. Per ogni posizione recupera il **close più recente**:
+   - `qty` e `avg_price` **restano invariati** (non vengono allineati alle raccomandazioni);
+   - `market_value = qty × close_odierno` (negativo per gli short).
+3. Upsert in `portfolio_position` per `pos_date = CURDATE()`:
    `qty`, `avg_price`, `market_value = qty × close_odierno`.
-5. Upsert in `portfolio_cash` per `cash_date = CURDATE()`: `balance = cash_balance`.
-6. Ritorna il riepilogo (NAV, cash, posizioni) nei `details` di `job_run`.
+4. Upsert in `portfolio_cash` per `cash_date = CURDATE()`: riporta in avanti l'ultimo saldo
+   (il cash è aggiornato solo dalle operazioni manuali).
+5. Ritorna il riepilogo (NAV, cash, posizioni) nei `details` di `job_run`.
 
 ### Registrazione in `app/cli.py`
 - Import di `run_nav_job`.
@@ -139,14 +144,21 @@ getPortfolioValue(code: string): Observable<any> {
 Nuova pagina Angular **`/config`** (voce "Configurazione" nella navbar) che permette di:
 
 1. **Campo "Capitale Iniziale"**: modifica del capitale simulato (prefilled col valore corrente).
-2. **Bottone "Reset Portafoglio"**: azzera lo stato del portafoglio ma **non** i dati utili al modello.
+2. **Campo "Max Asset"**: modifica del numero massimo di asset detenibili nel portafoglio (prefilled col valore corrente), salvato con il bottone "Salva Configurazione".
+3. **Bottone "Reset Portafoglio"**: azzera lo stato del portafoglio ma **non** i dati utili al modello.
 
 ### Endpoint API (router `api/routers/config.py`)
-- `GET /api/portfolios/{code}/config` → parametri correnti (`initial_capital`, `risk_percentage`, `n_long`, `n_short`, `name`).
+- `GET /api/portfolios/{code}/config` → parametri correnti (`initial_capital`, `risk_percentage`, `n_long`, `n_short`, `max_assets`, `name`).
+- `POST /api/portfolios/{code}/config` body `{"max_assets": 20}`:
+  - Valida `max_assets` intero ≥ 1 (errore 422 altrimenti).
+  - Aggiorna `portfolio.max_assets` e restituisce i parametri correnti.
 - `POST /api/portfolios/{code}/reset` body `{"initial_capital": 5000}`:
   - Aggiorna `portfolio.initial_capital`.
-  - Cancella `portfolio_position`, `portfolio_cash`, `portfolio_recommendation`.
+  - Cancella `portfolio_position`, `portfolio_cash`, `portfolio_trade`, `portfolio_recommendation`.
   - Inserisce `portfolio_cash` a `CURDATE()` con `balance = initial_capital`.
+
+> `max_assets` è il **cap totale** delle raccomandazioni: il job `recommend` non supera mai
+> questo limite (riproporziona `n_long`/`n_short` quando `n_long + n_short > max_assets`).
 
 ### Cosa resta intatto (dati del modello)
 `price_daily`, `portfolio_signal`, `instrument`, `portfolio_instrument`, `model_registry`,
@@ -161,8 +173,15 @@ Nuova pagina Angular **`/config`** (voce "Configurazione" nella navbar) che perm
 ## 9. Limiti e Note
 
 - **È una simulazione**: i valori non corrispondono a denaro reale.
-- Se in futuro si vorrà registrare operazioni reali fatte col promotore, si potrà aggiungere
-  la registrazione manuale che sovrascrive la simulazione (la struttura dati `portfolio_position`
-  è già predisposta).
+- Le posizioni del portafoglio attuale sono **gestite manualmente** dalla pagina
+  "Portafoglio Attuale" (vedi `piano-portafoglio-attuale.md`): ogni modifica viene
+  registrata come operazione in `portfolio_trade` e il cash viene ricalcolato di
+  conseguenza. Il pulsante "Applica Raccomandazioni del Modello" allinea le posizioni
+  alla composizione target alla lettera.
+- Il job notturno `nav` esegue **solo mark-to-market**: aggiorna `market_value` ai
+  prezzi correnti senza modificare quantità e costo di carico.
+- Le posizioni **short** sono sempre in **quote intere** (arrotondamento aritmetico
+  half-up): sia nelle raccomandazioni (`target_qty`) sia nel portafoglio attuale.
+  Una quantità short che arrotonda a **0** comporta la chiusura della posizione.
 - La serie storica NAV si costruisce con gli snapshot giornalieri di `portfolio_position` e
   `portfolio_cash`; in caso di rebalance, i giorni precedenti non vengono retroattivamente modificati.

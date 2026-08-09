@@ -17,6 +17,7 @@ e del valore giornaliero del portafoglio (NAV).
 portfolio ──< portfolio_instrument >── instrument
 portfolio ──< portfolio_cash (Liquidità giornaliera)
 portfolio ──< portfolio_position (Quote detenute)
+portfolio ──< portfolio_trade (Log operazioni eseguite)
 instrument ──< price_daily
 instrument ──< news
 model_registry ──< model_prediction
@@ -41,6 +42,7 @@ CREATE TABLE portfolio (
     model_id INT UNSIGNED NULL,
     n_long SMALLINT NOT NULL DEFAULT 5,
     n_short SMALLINT NOT NULL DEFAULT 3,
+    max_assets SMALLINT NOT NULL DEFAULT 20, -- numero massimo di asset detenibili nel portafoglio (cap totale long+short)
     risk_percentage DECIMAL(5,4) NOT NULL DEFAULT 0.9000,
     initial_capital DECIMAL(12,2) NOT NULL DEFAULT 5000.00,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -58,9 +60,29 @@ CREATE TABLE instrument (
     currency CHAR(3) NOT NULL DEFAULT 'EUR',
     active TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    sector VARCHAR(128) NULL,
+    country VARCHAR(128) NULL,
+    area ENUM('usa','eu','asia','emerging','other') NULL,
+    metadata_date DATE NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
+
+**Colonne metadati** (popolate dal job batch `metadata`, fonte yfinance `ticker.info`):
+
+| Colonna | Tipo | Descrizione |
+|---|---|---|
+| `sector` | `VARCHAR(128) NULL` | Settore merceologico per le azioni (`info['sector']`); per ETF/bond_yield fallback sul comparto `info['category']`. |
+| `country` | `VARCHAR(128) NULL` | Paese di domicilio/listing (`info['country']`, es. "United States"). |
+| `area` | `ENUM('usa','eu','asia','emerging','other')` | Area di portafoglio derivata dalla `country` (vedi regola sotto). |
+| `metadata_date` | `DATE NULL` | Data dell'ultimo fetch dei metadati (evita download ripetuti; aggiornato dopo `n` giorni o con `--force`). |
+
+**Regola di derivazione dell'`area`** (priorità **Emergenti > EU > USA > Asia > Altro**):
+- `emerging`: Cina, Brasile, India, Sudafrica, Messico, Russia, Indonesia, Turchia, ecc. (ha priorità sulle altre: un paese in più liste vince, es. Cina → `emerging`).
+- `eu`: Italia, Germania, Francia, Spagna, Paesi Bassi, Irlanda, Svizzera, Svezia, Danimarca, Belgio, Austria, Portogallo, Finlandia, Regno Unito, ecc.
+- `usa`: United States (e USA in genere).
+- `asia`: Giappone, Corea del Sud, Taiwan, Hong Kong, Singapore, Australia, ecc.
+- `other`: valori mancanti o non riconosciuti.
 
 ### 2.3 `portfolio_instrument`
 ```sql
@@ -200,7 +222,37 @@ CREATE TABLE portfolio_signal (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
-### 2.12 `portfolio_recommendation`
+### 2.12 `portfolio_trade`
+Log delle operazioni eseguite sul portafoglio attuale (apertura/chiusura long e short).
+Serve per l'audit storico e per il **ricalcolo del cash**: `cash = initial_capital + Σ amount`.
+
+```sql
+CREATE TABLE portfolio_trade (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    portfolio_id INT UNSIGNED NOT NULL,
+    instrument_id INT UNSIGNED NOT NULL,
+    trade_date DATE NOT NULL,
+    side ENUM('buy','sell','short','cover') NOT NULL,
+    qty DECIMAL(16,4) NOT NULL,
+    price DECIMAL(14,6) NOT NULL,
+    amount DECIMAL(16,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (portfolio_id) REFERENCES portfolio(id) ON DELETE CASCADE,
+    FOREIGN KEY (instrument_id) REFERENCES instrument(id) ON DELETE CASCADE,
+    INDEX idx_trade_date (trade_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+`side`:
+- `buy` → acquisto (long): `amount = −qty × price`.
+- `sell` → vendita (long): `amount = +qty × price`.
+- `short` → apertura vendita allo scoperto: `amount = +qty × price`.
+- `cover` → chiusura vendita allo scoperto: `amount = −qty × price`.
+
+Le posizioni **short** sono rappresentate in `portfolio_position` con `qty` **negativa**:
+`market_value = qty × close` (negativo), P&L posizione = `qty × (close − avg_price)`.
+
+### 2.13 `portfolio_recommendation`
 ```sql
 CREATE TABLE portfolio_recommendation (
     portfolio_id INT UNSIGNED NOT NULL,
@@ -217,7 +269,7 @@ CREATE TABLE portfolio_recommendation (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
-### 2.13 `news_summary`
+### 2.14 `news_summary`
 ```sql
 CREATE TABLE news_summary (
     portfolio_id INT UNSIGNED NOT NULL,
@@ -228,7 +280,7 @@ CREATE TABLE news_summary (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
-### 2.14 `job_run`
+### 2.15 `job_run`
 ```sql
 CREATE TABLE job_run (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

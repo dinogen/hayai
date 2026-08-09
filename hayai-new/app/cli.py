@@ -1,10 +1,12 @@
 import sys
 import argparse
+import inspect
 import traceback
 from datetime import datetime
-from app.db import execute_query
+from app.db import execute_query, get_db_connection
 from app.logging_setup import setup_logger
 from app.jobs.data import run_data_job
+from app.jobs.metadata import run_metadata_job
 from app.jobs.news import run_news_job
 from app.jobs.sentiment import run_sentiment_job
 from app.jobs.predict import run_predict_job
@@ -17,6 +19,7 @@ logger = setup_logger("app.cli")
 
 JOBS_MAP = {
     "data": run_data_job,
+    "metadata": run_metadata_job,
     "news": run_news_job,
     "sentiment": run_sentiment_job,
     "predict": run_predict_job,
@@ -27,10 +30,10 @@ JOBS_MAP = {
 }
 
 def log_job_start(job_name: str) -> int:
-    query = "INSERT INTO job_run (job_name, started_at, status) VALUES (%s, NOW(), 'running')"
-    execute_query(query, (job_name,), fetch=False)
-    res = execute_query("SELECT LAST_INSERT_ID() as id")
-    return res[0]['id']
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("INSERT INTO job_run (job_name, started_at, status) VALUES (%s, NOW(), 'running')", (job_name,))
+            return cursor.lastrowid
 
 def log_job_end(job_id: int, status: str, details: dict = None):
     import json
@@ -42,6 +45,7 @@ def main():
     parser = argparse.ArgumentParser(description="HAYAI v2 Batch CLI")
     parser.add_argument("job", choices=list(JOBS_MAP.keys()), help="Name of the batch job to run")
     parser.add_argument("--portfolio", type=str, default="main", help="Portfolio code (default: main)")
+    parser.add_argument("--force", action="store_true", help="Force refresh even if metadata is fresh")
     
     args = parser.parse_args()
     job_name = args.job
@@ -53,7 +57,10 @@ def main():
     start_time = datetime.now()
     try:
         job_func = JOBS_MAP[job_name]
-        result_details = job_func(portfolio_code=portfolio_code)
+        if "force" in inspect.signature(job_func).parameters:
+            result_details = job_func(portfolio_code=portfolio_code, force=args.force)
+        else:
+            result_details = job_func(portfolio_code=portfolio_code)
         
         duration = (datetime.now() - start_time).total_seconds()
         details = {"duration_seconds": duration, **(result_details or {})}

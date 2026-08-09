@@ -18,16 +18,12 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
           </div>
           <nav style="display: flex; gap: 2rem; align-items: center; font-family: 'Rajdhani'; font-size: 1.1rem; font-weight: 700;">
             <a routerLink="/" routerLinkActive="active-link" [routerLinkActiveOptions]="{exact: true}" style="color: #475569; text-decoration: none;">Dashboard</a>
+            <a routerLink="/portfolio" routerLinkActive="active-link" style="color: #475569; text-decoration: none;">Portafoglio Attuale</a>
             <a routerLink="/recommendations" routerLinkActive="active-link" style="color: #475569; text-decoration: none;">Composizione Consigliata</a>
             <a routerLink="/signals" routerLinkActive="active-link" style="color: #475569; text-decoration: none;">Segnali Ibridi</a>
             <a routerLink="/news" routerLinkActive="active-link" style="color: #475569; text-decoration: none;">Notizie & AI Summaries</a>
             <a routerLink="/config" routerLinkActive="active-link" style="color: #475569; text-decoration: none;">Configurazione</a>
           </nav>
-          <div>
-            <span style="font-family: 'JetBrains Mono'; font-size: 0.75rem; background: #f7fee7; color: #365314; border: 1px solid #bef264; padding: 0.25rem 0.5rem; font-weight: 600;">
-              MARIADB: ONLINE
-            </span>
-          </div>
         </div>
       </div>
     </header>

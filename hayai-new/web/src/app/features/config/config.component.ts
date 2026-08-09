@@ -36,6 +36,33 @@ import { ApiService } from '../../core/services/api.service';
             <div style="color: #94a3b8; font-size: 0.75rem;">TOP LONG / BOTTOM SHORT</div>
             <div style="font-weight: bold; color: #0f172a;">{{ config()?.n_long || 'N/D' }} / {{ config()?.n_short || 'N/D' }}</div>
           </div>
+          <div>
+            <div style="color: #94a3b8; font-size: 0.75rem;">MAX ASSET PORTAFOGLIO</div>
+            <div style="font-weight: bold; color: #0f172a;">{{ config()?.max_assets || 'N/D' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Update Max Assets -->
+      <div class="hud-card">
+        <h2 class="font-display" style="font-size: 1.15rem; font-weight: 700; color: #1e293b; margin-top: 0; margin-bottom: 0.25rem;">PARAMETRI</h2>
+        <p style="font-family: 'Rajdhani'; font-size: 1rem; color: #64748b; margin: 0 0 1rem 0;">
+          Imposta il numero massimo di asset detenibili nel portafoglio. Il job di raccomandazione
+          notturna non supererà mai questo limite (top long + bottom short).
+        </p>
+        <div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+          <div>
+            <label for="maxAssets" style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #64748b; display: block; margin-bottom: 0.35rem;">MAX ASSET (n.)</label>
+            <input id="maxAssets" type="number" min="1" step="1" [(ngModel)]="maxAssets"
+                   style="font-family: 'JetBrains Mono'; font-size: 1rem; color: #0f172a; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 0.6rem 0.75rem; width: 180px;">
+          </div>
+          <button type="button" class="btn-cyber" (click)="onSaveConfig()"
+                  style="background: #0f172a; box-shadow: 0 2px 4px rgba(15, 23, 42, 0.2);">
+            Salva Configurazione
+          </button>
+        </div>
+        <div *ngIf="configStatus()" [style.color]="configStatus()?.ok ? '#16a34a' : '#dc2626'" style="margin-top: 1rem; font-family: 'JetBrains Mono'; font-size: 0.85rem;">
+          {{ configStatus()?.message }}
         </div>
       </div>
 
@@ -82,7 +109,9 @@ import { ApiService } from '../../core/services/api.service';
 export class ConfigComponent implements OnInit {
   config = signal<any>(null);
   initialCapital = 5000;
+  maxAssets = 20;
   status = signal<{ ok: boolean; message: string } | null>(null);
+  configStatus = signal<{ ok: boolean; message: string } | null>(null);
 
   constructor(private api: ApiService) {}
 
@@ -91,10 +120,31 @@ export class ConfigComponent implements OnInit {
       next: (res) => {
         this.config.set(res);
         this.initialCapital = Number(res.initial_capital) || 5000;
+        this.maxAssets = Number(res.max_assets) || 20;
       },
       error: (err) => {
         console.error(err);
         this.status.set({ ok: false, message: 'Errore nel caricamento della configurazione.' });
+      }
+    });
+  }
+
+  onSaveConfig() {
+    const maxAssets = Number(this.maxAssets);
+    if (!Number.isInteger(maxAssets) || maxAssets < 1) {
+      this.configStatus.set({ ok: false, message: 'Inserisci un numero massimo di asset valido (intero maggiore o uguale a 1).' });
+      return;
+    }
+
+    this.api.updatePortfolioConfig('main', maxAssets).subscribe({
+      next: (res) => {
+        this.config.set(res);
+        this.maxAssets = Number(res.max_assets) || maxAssets;
+        this.configStatus.set({ ok: true, message: `Configurazione salvata: max ${res.max_assets} asset nel portafoglio.` });
+      },
+      error: (err) => {
+        console.error(err);
+        this.configStatus.set({ ok: false, message: 'Errore durante il salvataggio della configurazione.' });
       }
     });
   }

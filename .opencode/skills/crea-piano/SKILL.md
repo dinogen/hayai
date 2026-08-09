@@ -29,6 +29,7 @@ documento piano seguendo il formato del modello di riferimento
    - `- **Todolist**:` seguita da checklist checkbox (`- [ ]`), una riga per
      azione concreta e verificabile.
 5. Lingua: il documento del piano in **italiano** (come da convenzioni progetto).
+6. Controlla sempre se è opportuno aggiungere un task di aggiornamento della documentazione.
 
 ## Struttura del file
 

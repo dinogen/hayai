@@ -30,18 +30,25 @@ def get_portfolios():
     return portfolios
 
 @router.get("/portfolios/{code}")
-def get_portfolio_detail(code: str):
+def get_portfolio_detail(code: str, area: str | None = None):
     port = execute_query("SELECT * FROM portfolio WHERE code = %s", (code,))
     if not port:
         raise HTTPException(status_code=404, detail="Portfolio not found")
-    
-    instruments = execute_query("""
-        SELECT i.id, i.symbol, i.name, i.instrument_type, i.currency
+
+    query = """
+        SELECT i.id, i.symbol, i.name, i.instrument_type, i.currency,
+               i.sector, i.country, i.area, i.metadata_date
         FROM instrument i
         JOIN portfolio_instrument pi ON i.id = pi.instrument_id
         JOIN portfolio p ON pi.portfolio_id = p.id
         WHERE p.code = %s AND i.active = 1
-    """, (code,))
+    """
+    params = [code]
+    if area:
+        query += " AND i.area = %s"
+        params.append(area)
+
+    instruments = execute_query(query, tuple(params))
 
     return {
         "portfolio": port[0],

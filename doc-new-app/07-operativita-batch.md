@@ -15,13 +15,14 @@ python -m app.cli <job_name> [--portfolio <code>]
 
 ### Elenco dei Job Notturni
 1. **`data`**: Scarica i prezzi giornalieri OHLCV, forex e indici da yfinance e fa l'upsert in `price_daily`, `fx_rate`, `index_value`.
-2. **`news`**: Scarica le notizie recenti per tutti gli strumenti attivi e le salva in `news`.
-3. **`sentiment`**: Invia le nuove notizie alle API di **DeepSeek**, ricava sentiment, confidence e rationale, e popola `news_sentiment`.
-4. **`predict`**: Esegue l'inferenza ONNX (`model_prediction`) utilizzando i modelli attivi in `model_registry`.
-5. **`signal`**: Combina `model_prediction` e `news_sentiment` per calcolare il segnale ibrido in `portfolio_signal`.
-6. **`recommend`**: Calcola i pesi finali long/short e popola `portfolio_recommendation`.
-7. **`nav`**: Mark-to-Market giornaliero: allinea le posizioni simulate alla raccomandazione e calcola NAV/cash in `portfolio_position` e `portfolio_cash`.
-8. **`summaries`**: Compila il riassunto in Markdown per portafoglio e lo salva in `news_summary`.
+2. **`metadata`**: Scarica settore, country e area degli strumenti (`sector`/`category`, `country`) da yfinance e aggiorna `instrument`. Salta gli strumenti aggiornati da meno di 30 giorni, oppure forza il refresh con `--force`.
+3. **`news`**: Scarica le notizie recenti per tutti gli strumenti attivi e le salva in `news`.
+4. **`sentiment`**: Invia le nuove notizie alle API di **DeepSeek**, ricava sentiment, confidence e rationale, e popola `news_sentiment`.
+5. **`predict`**: Esegue l'inferenza ONNX (`model_prediction`) utilizzando i modelli attivi in `model_registry`.
+6. **`signal`**: Combina `model_prediction` e `news_sentiment` per calcolare il segnale ibrido in `portfolio_signal`.
+7. **`recommend`**: Calcola i pesi finali long/short e popola `portfolio_recommendation`.
+8. **`nav`**: Mark-to-Market giornaliero: allinea le posizioni simulate alla raccomandazione e calcola NAV/cash in `portfolio_position` e `portfolio_cash`.
+9. **`summaries`**: Compila il riassunto in Markdown per portafoglio e lo salva in `news_summary`.
 
 ---
 
@@ -55,15 +56,16 @@ Crontab dell'utente `hayai` sul Raspberry Pi per l'esecuzione automatica notturn
 ```cron
 # Esecuzione sequenziale notturna (Lun-Ven alle 02:15)
 15 2 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli data >> logs/cron.log 2>&1
-30 2 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli news >> logs/cron.log 2>&1
-45 2 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli sentiment >> logs/cron.log 2>&1
-00 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli predict >> logs/cron.log 2>&1
-15 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli signal >> logs/cron.log 2>&1
-30 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli recommend >> logs/cron.log 2>&1
-35 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli nav >> logs/cron.log 2>&1
-45 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli summaries >> logs/cron.log 2>&1
+30 2 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli metadata >> logs/cron.log 2>&1
+45 2 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli news >> logs/cron.log 2>&1
+00 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli sentiment >> logs/cron.log 2>&1
+15 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli predict >> logs/cron.log 2>&1
+30 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli signal >> logs/cron.log 2>&1
+45 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli recommend >> logs/cron.log 2>&1
+50 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli nav >> logs/cron.log 2>&1
+00 4 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli summaries >> logs/cron.log 2>&1
 
-# Backup giornaliero del database alle 04:00
+# Backup giornaliero del database alle 04:15
 0  4 * * *     cd /opt/hayai-new && scripts/backup.sh >> logs/backup.log 2>&1
 ```
 

@@ -2,6 +2,7 @@
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS portfolio_trade;
 DROP TABLE IF EXISTS portfolio_recommendation;
 DROP TABLE IF EXISTS portfolio_signal;
 DROP TABLE IF EXISTS news_sentiment;
@@ -28,6 +29,7 @@ CREATE TABLE portfolio (
     model_id INT UNSIGNED NULL,
     n_long SMALLINT NOT NULL DEFAULT 5,
     n_short SMALLINT NOT NULL DEFAULT 3,
+    max_assets SMALLINT NOT NULL DEFAULT 20,
     risk_percentage DECIMAL(5,4) NOT NULL DEFAULT 0.9000,
     initial_capital DECIMAL(12,2) NOT NULL DEFAULT 5000.00,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -43,7 +45,11 @@ CREATE TABLE instrument (
     currency CHAR(3) NOT NULL DEFAULT 'EUR',
     active TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    sector VARCHAR(128) NULL,
+    country VARCHAR(128) NULL,
+    area ENUM('usa','eu','asia','emerging','other') NULL,
+    metadata_date DATE NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 3. portfolio_instrument
@@ -162,7 +168,23 @@ CREATE TABLE portfolio_signal (
     FOREIGN KEY (instrument_id) REFERENCES instrument(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 12. portfolio_recommendation
+-- 12. portfolio_trade
+CREATE TABLE portfolio_trade (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    portfolio_id INT UNSIGNED NOT NULL,
+    instrument_id INT UNSIGNED NOT NULL,
+    trade_date DATE NOT NULL,
+    side ENUM('buy','sell','short','cover') NOT NULL,
+    qty DECIMAL(16,4) NOT NULL,
+    price DECIMAL(14,6) NOT NULL,
+    amount DECIMAL(16,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (portfolio_id) REFERENCES portfolio(id) ON DELETE CASCADE,
+    FOREIGN KEY (instrument_id) REFERENCES instrument(id) ON DELETE CASCADE,
+    INDEX idx_trade_date (trade_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 13. portfolio_recommendation
 CREATE TABLE portfolio_recommendation (
     portfolio_id INT UNSIGNED NOT NULL,
     instrument_id INT UNSIGNED NOT NULL,
@@ -177,7 +199,7 @@ CREATE TABLE portfolio_recommendation (
     FOREIGN KEY (instrument_id) REFERENCES instrument(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 13. news_summary
+-- 14. news_summary
 CREATE TABLE news_summary (
     portfolio_id INT UNSIGNED NOT NULL,
     summary_date DATE NOT NULL,
@@ -186,7 +208,7 @@ CREATE TABLE news_summary (
     FOREIGN KEY (portfolio_id) REFERENCES portfolio(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 14. job_run
+-- 15. job_run
 CREATE TABLE job_run (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     job_name VARCHAR(64) NOT NULL,

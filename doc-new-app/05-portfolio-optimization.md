@@ -14,7 +14,12 @@ Ogni notte, dopo il calcolo del segnale ibrido in `portfolio_signal`, il batch c
 2. **Selezione Top/Bottom**:
    - I migliori **`n_long`** strumenti (es. 5) con segnale positivo.
    - I peggiori **`n_short`** strumenti (es. 3) con segnale negativo.
-3. **Normalizzazione**: la somma dei valori assoluti dei pesi è esattamente **1.0**.
+3. **Cap sul totale (`max_assets`)**: se `n_long + n_short > max_assets` (es. 20),
+   i due parametri vengono riproporzionati (`n_long = round(max_assets × n_long/(n_long+n_short))`,
+   `n_short = max_assets − n_long`, con minimo 1 per lato). Il numero totale di
+   raccomandazioni non supera mai `max_assets`; le raccomandazioni stale della stessa
+   `rec_date` vengono eliminate prima dell'inserimento.
+4. **Normalizzazione**: la somma dei valori assoluti dei pesi è esattamente **1.0**.
 
 > **Nota importante**: la maggior parte degli strumenti dell'universo di training
 > non viene mai selezionata e ha **peso 0** (non viene detenuta). Il portafoglio
@@ -31,6 +36,12 @@ Poiché il portafoglio ha un capitale iniziale di **€5.000** e un livello di r
   $$\text{target\_amount} = \text{weight} \times €4.500$$
 - **Quantità di Quote (`target_qty`)**:
   $$\text{target\_qty} = \text{round}\left(\frac{\text{target\_amount}}{\text{prezzo corrente}}\right)$$
+
+> **Regola short interi**: gli short sono sempre espressi in **quote intere** con
+> **arrotondamento aritmetico** (half-up: `floor(x + 0.5)`), perché molti broker
+> accettano solo interi per le vendite allo scoperto. Se lo short arrotondato dà
+> **0**, la raccomandazione non viene emessa (posizione chiusa). I long mantengono
+> i decimali. Stessa regola vale sul salvataggio del portafoglio (`holdings/save`).
 
 ### Esempio Pratico per la Webapp:
 - **AAPL** (Long, peso 15%):

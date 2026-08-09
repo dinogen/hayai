@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.db import execute_query
-from api.routers import portfolios, config
+from api.routers import portfolios, config, holdings
 
 app = FastAPI(
     title="HAYAI v2 API",
-    description="Personal Quant & AI Decision Support System API (Read-Only)",
+    description="Personal Quant & AI Decision Support System API (Read-Only, with manual portfolio management)",
     version="2.0.0"
 )
 
@@ -19,6 +19,7 @@ app.add_middleware(
 
 app.include_router(portfolios.router, prefix="/api", tags=["Portfolios"])
 app.include_router(config.router, prefix="/api", tags=["Configuration"])
+app.include_router(holdings.router, prefix="/api", tags=["Holdings"])
 
 @app.get("/api/health")
 def health_check():

@@ -3,6 +3,7 @@ import numpy as np
 from datetime import date
 from app.db import execute_query, get_db_connection
 from app.logging_setup import setup_logger
+from app.math_utils import round_short_qty
 
 logger = setup_logger("app.jobs.recommend")
 
@@ -10,7 +11,7 @@ def run_recommend_job(portfolio_code: str = "main") -> dict:
     logger.info("Computing portfolio recommendations (Long/Short allocation for €5,000)...")
 
     port_rows = execute_query("""
-        SELECT id, n_long, n_short, risk_percentage, initial_capital 
+        SELECT id, n_long, n_short, max_assets, risk_percentage, initial_capital 
         FROM portfolio WHERE code = %s
     """, (portfolio_code,))
     
@@ -22,8 +23,15 @@ def run_recommend_job(portfolio_code: str = "main") -> dict:
     portfolio_id = port['id']
     n_long = int(port['n_long'])
     n_short = int(port['n_short'])
+    max_assets = int(port['max_assets'])
     risk_pct = float(port['risk_percentage'])
     initial_capital = float(port['initial_capital'])
+
+    # Enforce the max_assets cap on the total number of recommendations.
+    if n_long + n_short > max_assets and max_assets >= 2:
+        n_long = max(1, round(max_assets * n_long / (n_long + n_short)))
+        n_short = max_assets - n_long
+        logger.info(f"max_assets cap applied: n_long={n_long}, n_short={n_short}")
 
     # Investable capital (e.g., 90% of €5000 = €4500)
     investable_capital = initial_capital * risk_pct
@@ -68,21 +76,21 @@ def run_recommend_job(portfolio_code: str = "main") -> dict:
 
     rec_date = df_selected['signal_date'].iloc[0]
 
-    # Fetch latest prices for target amounts/quantities
-    upsert_query = """
+    insert_query = """
         INSERT INTO portfolio_recommendation (portfolio_id, instrument_id, rec_date, weight, side, target_amount, target_qty, prev_weight)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        ON DUPLICATE KEY UPDATE
-            weight = VALUES(weight),
-            side = VALUES(side),
-            target_amount = VALUES(target_amount),
-            target_qty = VALUES(target_qty),
-            prev_weight = VALUES(prev_weight)
     """
 
     recs_count = 0
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
+            # Remove stale recommendations for the current date so the cap on the
+            # total number of assets is always respected.
+            cursor.execute("""
+                DELETE FROM portfolio_recommendation
+                WHERE portfolio_id = %s AND rec_date = %s
+            """, (portfolio_id, rec_date))
+
             for _, row in df_selected.iterrows():
                 inst_id = row['instrument_id']
                 symbol = row['symbol']
@@ -96,7 +104,15 @@ def run_recommend_job(portfolio_code: str = "main") -> dict:
                 price = float(price_res[0]['close']) if price_res and price_res[0]['close'] else 1.0
 
                 target_amount = abs(weight) * investable_capital
-                target_qty = round(target_amount / price, 4) if price > 0 else 0.0
+                if side == 'short':
+                    target_qty = round_short_qty(target_amount / price) if price > 0 else 0
+                    # A short that rounds to zero is effectively closed: skip it.
+                    if target_qty == 0:
+                        logger.info(f"Recommendation for {symbol}: side=short, qty=0 after rounding -> skipped (position closed)")
+                        continue
+                    target_amount = target_qty * price
+                else:
+                    target_qty = round(target_amount / price, 4) if price > 0 else 0.0
 
                 # Get previous weight if exists
                 prev_res = execute_query("""
@@ -104,7 +120,7 @@ def run_recommend_job(portfolio_code: str = "main") -> dict:
                 """, (portfolio_id, inst_id))
                 prev_weight = float(prev_res[0]['weight']) if prev_res else 0.0
 
-                cursor.execute(upsert_query, (
+                cursor.execute(insert_query, (
                     portfolio_id, inst_id, rec_date, weight, side, target_amount, target_qty, prev_weight
                 ))
                 recs_count += 1

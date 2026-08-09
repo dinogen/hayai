@@ -42,8 +42,20 @@ export class ApiService {
     return this.http.get(`${this.baseUrl}/portfolios/${code}/summaries/latest`);
   }
 
+  getHoldings(code: string): Observable<any> {
+    return this.http.get(`${this.baseUrl}/portfolios/${code}/holdings`);
+  }
+
+  saveHoldings(code: string, positions: any[]): Observable<any> {
+    return this.http.post(`${this.baseUrl}/portfolios/${code}/holdings/save`, { positions });
+  }
+
   getPortfolioConfig(code: string): Observable<any> {
     return this.http.get(`${this.baseUrl}/portfolios/${code}/config`);
+  }
+
+  updatePortfolioConfig(code: string, maxAssets: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/portfolios/${code}/config`, { max_assets: maxAssets });
   }
 
   resetPortfolio(code: string, initialCapital: number): Observable<any> {

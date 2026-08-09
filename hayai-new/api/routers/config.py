@@ -7,15 +7,36 @@ router = APIRouter()
 class ResetRequest(BaseModel):
     initial_capital: float
 
+class ConfigUpdateRequest(BaseModel):
+    max_assets: int
+
 @router.get("/portfolios/{code}/config")
 def get_portfolio_config(code: str):
     port = execute_query("""
-        SELECT code, name, active, n_long, n_short, risk_percentage, initial_capital
+        SELECT code, name, active, n_long, n_short, max_assets, risk_percentage, initial_capital
         FROM portfolio WHERE code = %s
     """, (code,))
     if not port:
         raise HTTPException(status_code=404, detail="Portfolio not found")
     return port[0]
+
+@router.post("/portfolios/{code}/config")
+def update_portfolio_config(code: str, payload: ConfigUpdateRequest):
+    if payload.max_assets < 1:
+        raise HTTPException(status_code=422, detail="max_assets must be a positive integer")
+
+    port = execute_query("SELECT id FROM portfolio WHERE code = %s", (code,))
+    if not port:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+    portfolio_id = port[0]['id']
+
+    execute_query("UPDATE portfolio SET max_assets = %s WHERE id = %s", (payload.max_assets, portfolio_id), fetch=False)
+
+    updated = execute_query("""
+        SELECT code, name, active, n_long, n_short, max_assets, risk_percentage, initial_capital
+        FROM portfolio WHERE id = %s
+    """, (portfolio_id,))
+    return updated[0]
 
 @router.post("/portfolios/{code}/reset")
 def reset_portfolio(code: str, payload: ResetRequest):
@@ -34,6 +55,7 @@ def reset_portfolio(code: str, payload: ResetRequest):
             cursor.execute("UPDATE portfolio SET initial_capital = %s WHERE id = %s", (capital, portfolio_id))
             cursor.execute("DELETE FROM portfolio_position WHERE portfolio_id = %s", (portfolio_id,))
             cursor.execute("DELETE FROM portfolio_cash WHERE portfolio_id = %s", (portfolio_id,))
+            cursor.execute("DELETE FROM portfolio_trade WHERE portfolio_id = %s", (portfolio_id,))
             cursor.execute("DELETE FROM portfolio_recommendation WHERE portfolio_id = %s", (portfolio_id,))
             cursor.execute(
                 "INSERT INTO portfolio_cash (portfolio_id, cash_date, balance) VALUES (%s, CURDATE(), %s)",
