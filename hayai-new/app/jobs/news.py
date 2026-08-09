@@ -1,7 +1,7 @@
 import requests
 import yfinance as yf
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone
 from app.db import execute_query, get_db_connection
 from app.jobs.cache import load_cached, save_cached
 from app.logging_setup import setup_logger
@@ -9,6 +9,37 @@ from app.logging_setup import setup_logger
 logger = setup_logger("app.jobs.news")
 
 NEWS_TTL_SECONDS = 6 * 3600
+
+
+def _parse_published_at(value):
+    """Parse a yfinance publish time into '%Y-%m-%d %H:%M:%S' or None."""
+    if not value:
+        return None
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value).strftime('%Y-%m-%d %H:%M:%S')
+    if isinstance(value, str):
+        try:
+            dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            return dt.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def normalize_news_item(item: dict) -> dict:
+    """Normalize a raw yfinance news item (nested 'content') to a flat dict."""
+    content = item.get('content') or {}
+    canonical_url = content.get('canonicalUrl') or {}
+    provider = content.get('provider') or {}
+
+    return {
+        'source_id': str(item.get('id') or item.get('uuid') or item.get('link') or ''),
+        'title': content.get('title') or item.get('title') or '',
+        'publisher': provider.get('displayName') or content.get('publisher') or item.get('publisher') or '',
+        'link': canonical_url.get('url') or content.get('link') or item.get('link') or '',
+        'published_at': _parse_published_at(content.get('pubDate') or item.get('providerPublishTime') or item.get('published_at')),
+        'summary': content.get('summary') or item.get('summary') or '',
+    }
 
 def run_news_job(portfolio_code: str = "main") -> dict:
     logger.info("Fetching active instruments for news ingestion...")
@@ -62,20 +93,13 @@ def run_news_job(portfolio_code: str = "main") -> dict:
 
                 rows = []
                 for item in news_list:
-                    source_id = str(item.get('id') or item.get('uuid') or item.get('link'))
-                    if not source_id:
+                    norm = normalize_news_item(item)
+                    if not norm['source_id']:
                         continue
-
-                    title = item.get('title', '')
-                    publisher = item.get('publisher', '')
-                    link = item.get('link', '')
-
-                    pub_time = item.get('providerPublishTime')
-                    published_at = datetime.fromtimestamp(pub_time).strftime('%Y-%m-%d %H:%M:%S') if pub_time else None
-
-                    summary = item.get('summary', '')
-
-                    rows.append((source_id, inst_id, title, publisher, link, published_at, summary))
+                    rows.append((
+                        norm['source_id'], inst_id, norm['title'], norm['publisher'],
+                        norm['link'], norm['published_at'], norm['summary'],
+                    ))
 
                 if rows:
                     cursor.executemany(upsert_query, rows)
