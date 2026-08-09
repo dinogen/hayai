@@ -11,7 +11,7 @@ from sklearn.model_selection import train_test_split
 
 from app.config import settings
 from app.db import execute_query
-from app.jobs.dataset_builder import build_training_dataset
+from app.jobs.dataset_builder import build_training_dataset, read_model_config, split_by_cutoffs
 from app.logging_setup import setup_logger
 
 logger = setup_logger("app.jobs.verify_model")
@@ -19,21 +19,28 @@ logger = setup_logger("app.jobs.verify_model")
 DEFAULT_MODEL_DIR = Path("model/stock_model/v1")
 
 
-def _load_active_model(portfolio_code: str):
-    model_rows = execute_query("""
-        SELECT m.id, m.name, m.version, m.artifact_path, m.feature_columns,
-               m.label_min, m.label_max, m.clip_min, m.clip_max
-        FROM model_registry m
-        JOIN portfolio p ON p.model_id = m.id
-        WHERE p.code = %s AND m.status = 'active'
-    """, (portfolio_code,))
-
-    if not model_rows:
+def _load_model(portfolio_code: str, model_version: str = None):
+    if model_version:
         model_rows = execute_query("""
             SELECT id, name, version, artifact_path, feature_columns,
                    label_min, label_max, clip_min, clip_max
-            FROM model_registry WHERE status = 'active' LIMIT 1
-        """)
+            FROM model_registry WHERE name = 'stock_model' AND version = %s
+        """, (model_version,))
+    else:
+        model_rows = execute_query("""
+            SELECT m.id, m.name, m.version, m.artifact_path, m.feature_columns,
+                   m.label_min, m.label_max, m.clip_min, m.clip_max
+            FROM model_registry m
+            JOIN portfolio p ON p.model_id = m.id
+            WHERE p.code = %s AND m.status = 'active'
+        """, (portfolio_code,))
+
+        if not model_rows:
+            model_rows = execute_query("""
+                SELECT id, name, version, artifact_path, feature_columns,
+                       label_min, label_max, clip_min, clip_max
+                FROM model_registry WHERE status = 'active' LIMIT 1
+            """)
 
     return model_rows[0] if model_rows else None
 
@@ -59,10 +66,10 @@ def _nan_report(name: str, arr: np.ndarray) -> list:
     }
 
 
-def run_verify_model_job(portfolio_code: str = "main") -> dict:
-    logger.info(f"Running model verification for portfolio '{portfolio_code}'...")
+def run_verify_model_job(portfolio_code: str = "main", model_version: str = None) -> dict:
+    logger.info(f"Running model verification for portfolio '{portfolio_code}' (version={model_version or 'active'})...")
 
-    model_info = _load_active_model(portfolio_code)
+    model_info = _load_model(portfolio_code, model_version)
     if not model_info:
         logger.error("No active model found in model_registry. Skipping verification.")
         return {"status": "no_active_model", "report_file": None}
@@ -82,6 +89,9 @@ def run_verify_model_job(portfolio_code: str = "main") -> dict:
         logger.warning(f"Artifact path {artifact_path} not found, falling back to {DEFAULT_MODEL_DIR}")
         artifact_path = DEFAULT_MODEL_DIR
 
+    model_config = read_model_config(artifact_path)
+    split_mode = model_config.get("split", "random")
+
     ort_session, input_name = _load_onnx_session(artifact_path)
 
     logger.info("Building dataset from database...")
@@ -95,14 +105,33 @@ def run_verify_model_job(portfolio_code: str = "main") -> dict:
     X = clean_df[feature_cols]
     y = clean_df["target"]
 
-    X_norm = (X - mins) / (maxs - mins + 1e-8)
-    y_norm = (y - label_min_rec) / (label_max_rec - label_min_rec + 1e-8)
+    if split_mode == "time":
+        train_end = model_config.get("train_end")
+        val_end = model_config.get("val_end")
+        if not train_end or not val_end:
+            logger.error("Model config missing train_end/val_end for time split. Aborting.")
+            return {"status": "missing_cutoffs", "report_file": None}
+        train_mask, val_mask, test_mask = split_by_cutoffs(clean_df, train_end, val_end)
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_norm, y_norm, test_size=0.2, random_state=42
-    )
+        X_train_raw = clean_df.loc[train_mask, feature_cols]
+        mins = X_train_raw.min()
+        maxs = X_train_raw.max()
+        label_min_rec = float(clean_df.loc[train_mask, "target"].min())
+        label_max_rec = float(clean_df.loc[train_mask, "target"].max())
 
-    split_ratio = len(X_train) / (len(X_train) + len(X_test))
+        X_train = (clean_df.loc[train_mask, feature_cols] - mins) / (maxs - mins + 1e-8)
+        X_test = (clean_df.loc[test_mask, feature_cols] - mins) / (maxs - mins + 1e-8)
+        y_train = (clean_df.loc[train_mask, "target"] - label_min_rec) / (label_max_rec - label_min_rec + 1e-8)
+        y_test = (clean_df.loc[test_mask, "target"] - label_min_rec) / (label_max_rec - label_min_rec + 1e-8)
+        split_ratio = len(X_train) / (len(X_train) + len(X_test))
+    else:
+        X_norm = (X - mins) / (maxs - mins + 1e-8)
+        y_norm = (y - label_min_rec) / (label_max_rec - label_min_rec + 1e-8)
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X_norm, y_norm, test_size=0.2, random_state=42
+        )
+        split_ratio = len(X_train) / (len(X_train) + len(X_test))
 
     checks = [
         _nan_report("X_train", X_train.to_numpy()),
@@ -165,6 +194,7 @@ def run_verify_model_job(portfolio_code: str = "main") -> dict:
         artifact_path=str(artifact_path),
         timestamp=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         portfolio=portfolio_code,
+        split_mode=split_mode,
         raw_rows=len(clean_df),
         train_size=len(X_train),
         test_size=len(X_test),
@@ -210,7 +240,7 @@ def run_verify_model_job(portfolio_code: str = "main") -> dict:
 
 
 def _build_report(model_name, model_version, artifact_path, timestamp, portfolio,
-                  raw_rows, train_size, test_size, split_ratio, checks, nan_total,
+                  split_mode, raw_rows, train_size, test_size, split_ratio, checks, nan_total,
                   rmse, mae, r2, hit_rate, tp, fp, tn, fn,
                   rmse_baseline, mae_baseline, sample_rows,
                   label_min_rec, label_max_rec, label_min_model, label_max_model,
@@ -237,11 +267,18 @@ def _build_report(model_name, model_version, artifact_path, timestamp, portfolio
     lines.append("")
 
     lines.append(sep)
-    lines.append("2) SPLIT TRAIN/TEST (80/20)")
-    lines.append(sep)
-    lines.append(f"  - Training: {train_size:>8} righe ({train_size / (train_size + test_size) * 100:.1f}%)")
-    lines.append(f"  - Test    : {test_size:>8} righe ({test_size / (train_size + test_size) * 100:.1f}%)")
-    lines.append(f"  - Split attuale: {split_ratio * 100:.1f}% / {(1 - split_ratio) * 100:.1f}% (atteso 80% / 20%, random_state=42)")
+    if split_mode == 'time':
+        lines.append("2) SPLIT TRAIN/TEST (holdout cronologico 70/15/15)")
+        lines.append(sep)
+        lines.append(f"  - Training: {train_size:>8} righe ({train_size / (train_size + test_size) * 100:.1f}% delle righe non-test)")
+        lines.append(f"  - Test    : {test_size:>8} righe (ultime date, mai usate dall'early stopping)")
+        lines.append(f"  - Split attuale: {split_ratio * 100:.1f}% train / {(1 - split_ratio) * 100:.1f}% test (per data)")
+    else:
+        lines.append("2) SPLIT TRAIN/TEST (80/20)")
+        lines.append(sep)
+        lines.append(f"  - Training: {train_size:>8} righe ({train_size / (train_size + test_size) * 100:.1f}%)")
+        lines.append(f"  - Test    : {test_size:>8} righe ({test_size / (train_size + test_size) * 100:.1f}%)")
+        lines.append(f"  - Split attuale: {split_ratio * 100:.1f}% / {(1 - split_ratio) * 100:.1f}% (atteso 80% / 20%, random_state=42)")
     lines.append("")
 
     lines.append(sep)
@@ -314,4 +351,5 @@ def _build_report(model_name, model_version, artifact_path, timestamp, portfolio
 
 if __name__ == "__main__":
     portfolio = sys.argv[1] if len(sys.argv) > 1 else "main"
-    run_verify_model_job(portfolio_code=portfolio)
+    version = sys.argv[2] if len(sys.argv) > 2 else None
+    run_verify_model_job(portfolio_code=portfolio, model_version=version)

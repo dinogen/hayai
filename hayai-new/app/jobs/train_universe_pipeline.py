@@ -11,7 +11,7 @@ from sklearn.model_selection import train_test_split
 
 from app.db import get_db_connection, execute_query
 from app.jobs.cache import load_cached, save_cached
-from app.jobs.dataset_builder import build_training_dataset
+from app.jobs.dataset_builder import build_training_dataset, split_by_date
 from app.logging_setup import setup_logger
 
 logger = setup_logger("app.jobs.train_universe_pipeline")
@@ -165,24 +165,42 @@ def download_historical_data(period="5y"):
                     cursor.executemany(upsert_query, rows)
     logger.info("Historical data download completed.")
 
-def build_dataset_and_train():
+def build_dataset_and_train(split: str = 'random', version: str = None, make_active: bool = True):
     logger.info("Building dataset from database for training...")
     dataset = build_training_dataset()
     if dataset is None:
         return
 
     clean_df, feature_cols, mins, maxs, label_min, label_max = dataset
+    version = version or MODEL_VERSION
+    split = (split or 'random').lower()
 
-    X = clean_df[feature_cols]
-    y = clean_df['target']
+    if split == 'time':
+        train_mask, val_mask, test_mask, cutoffs = split_by_date(clean_df)
+        X_train_raw = clean_df.loc[train_mask, feature_cols]
+        y_train_raw = clean_df.loc[train_mask, 'target']
+        mins = X_train_raw.min()
+        maxs = X_train_raw.max()
+        label_min = float(y_train_raw.min())
+        label_max = float(y_train_raw.max())
 
-    # Min-max normalization
-    X_norm = (X - mins) / (maxs - mins + 1e-8)
-
-    # Normalize target between 0 and 1 for sigmoid output
-    y_norm = (y - label_min) / (label_max - label_min + 1e-8)
-
-    X_train, X_test, y_train, y_test = train_test_split(X_norm, y_norm, test_size=0.2, random_state=42)
+        X_train = (X_train_raw - mins) / (maxs - mins + 1e-8)
+        y_train = (y_train_raw - label_min) / (label_max - label_min + 1e-8)
+        X_val = (clean_df.loc[val_mask, feature_cols] - mins) / (maxs - mins + 1e-8)
+        y_val = (clean_df.loc[val_mask, 'target'] - label_min) / (label_max - label_min + 1e-8)
+        X_test = (clean_df.loc[test_mask, feature_cols] - mins) / (maxs - mins + 1e-8)
+        y_test = (clean_df.loc[test_mask, 'target'] - label_min) / (label_max - label_min + 1e-8)
+        validation_data = (X_val, y_val)
+        logger.info(f"Time split: train={len(X_train)} val={len(X_val)} test={len(X_test)} "
+                    f"(train<={cutoffs['train_end']}, val<={cutoffs['val_end']})")
+    else:
+        X = clean_df[feature_cols]
+        y = clean_df['target']
+        X_norm = (X - mins) / (maxs - mins + 1e-8)
+        y_norm = (y - label_min) / (label_max - label_min + 1e-8)
+        X_train, X_test, y_train, y_test = train_test_split(X_norm, y_norm, test_size=0.2, random_state=42)
+        validation_data = (X_test, y_test)
+        cutoffs = None
 
     logger.info(f"Training MLP model on {len(X_train)} samples...")
 
@@ -197,10 +215,10 @@ def build_dataset_and_train():
     model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mae'])
     early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
     model.fit(X_train, y_train, epochs=50, batch_size=64,
-              validation_data=(X_test, y_test), verbose=1, callbacks=[early_stopping])
+              validation_data=validation_data, verbose=1, callbacks=[early_stopping])
 
     # Save outputs
-    model_dir = os.path.abspath(f"model/{MODEL_NAME}/{MODEL_VERSION}")
+    model_dir = os.path.abspath(f"model/{MODEL_NAME}/{version}")
     os.makedirs(model_dir, exist_ok=True)
 
     keras_path = os.path.join(model_dir, "model.keras")
@@ -242,19 +260,24 @@ def build_dataset_and_train():
         "label_min": float(label_min),
         "label_max": float(label_max),
         "clip_min": clip_min,
-        "clip_max": clip_max
+        "clip_max": clip_max,
+        "split": split,
     }
+    if cutoffs:
+        config["train_end"] = cutoffs["train_end"]
+        config["val_end"] = cutoffs["val_end"]
     with open(os.path.join(model_dir, "config.json"), "w") as f:
         json.dump(config, f, indent=2)
 
-    # Register model in model_registry and link it to the portfolio
+    # Register model in model_registry and (optionally) link it to the portfolio
+    reg_status = 'active' if make_active else 'draft'
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute("""
                 INSERT INTO model_registry
                     (name, version, artifact_path, feature_columns,
                      label_min, label_max, clip_min, clip_max, metrics, status)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'active')
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     artifact_path = VALUES(artifact_path),
                     feature_columns = VALUES(feature_columns),
@@ -262,22 +285,24 @@ def build_dataset_and_train():
                     label_max = VALUES(label_max),
                     clip_min = VALUES(clip_min),
                     clip_max = VALUES(clip_max),
-                    status = 'active'
+                    metrics = VALUES(metrics),
+                    status = VALUES(status)
             """, (
-                MODEL_NAME, MODEL_VERSION, model_dir, json.dumps(feature_cols),
+                MODEL_NAME, version, model_dir, json.dumps(feature_cols),
                 float(label_min), float(label_max), clip_min, clip_max,
-                json.dumps({"samples": int(len(clean_df))})
+                json.dumps({"samples": int(len(clean_df)), "split": split}), reg_status
             ))
             model_id = cursor.lastrowid
             cursor.execute("SELECT id FROM model_registry WHERE name=%s AND version=%s",
-                           (MODEL_NAME, MODEL_VERSION))
+                           (MODEL_NAME, version))
             row = cursor.fetchone()
             if row:
                 model_id = row['id']
-            cursor.execute("UPDATE portfolio SET model_id = %s WHERE code = 'main'", (model_id,))
+            if make_active:
+                cursor.execute("UPDATE portfolio SET model_id = %s WHERE code = 'main'", (model_id,))
         conn.commit()
 
-    logger.info(f"Training complete. Artifacts saved in {model_dir} (model_registry id={model_id})")
+    logger.info(f"Training complete. Artifacts saved in {model_dir} (model_registry id={model_id}, status={reg_status})")
 
 if __name__ == "__main__":
     seed_universe()

@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -57,6 +60,12 @@ def compute_features(df: pd.DataFrame) -> pd.DataFrame:
     vol_mean_20 = df['volume'].rolling(20).mean()
     df['volume_shock'] = df['volume'] / vol_mean_20
 
+    rolling_max = df['close'].rolling(252, min_periods=20).max()
+    is_high = df['close'] == rolling_max
+    positions = np.arange(len(df))
+    last_high_pos = pd.Series(np.where(is_high, positions, np.nan)).ffill().fillna(0)
+    df['days_since_high'] = np.log1p(positions - last_high_pos.to_numpy())
+
     fwd_close = df['close'].shift(-TRD)
     df['target'] = np.log(fwd_close / df['close']) / df['vol_20']
     df['target'] = df['target'].clip(TARGET_CLIP_MIN, TARGET_CLIP_MAX)
@@ -93,6 +102,10 @@ def _add_cross_sectional_features(panel: pd.DataFrame) -> pd.DataFrame:
         beta.loc[g.index] = (cov / var.where(var > 1e-12)).values
     panel['beta_20'] = beta
 
+    dow = panel['trade_date'].dt.dayofweek
+    panel['dow_sin'] = np.sin(2 * np.pi * dow / 7)
+    panel['dow_cos'] = np.cos(2 * np.pi * dow / 7)
+
     return panel.drop(columns=['_spy_ret', 'mkt_mom5'], errors='ignore')
 
 
@@ -128,6 +141,49 @@ def build_raw_df() -> pd.DataFrame:
         ORDER BY p.instrument_id, p.trade_date
     """)
     return pd.DataFrame(rows)
+
+
+def split_by_date(clean_df: pd.DataFrame, val_frac: float = 0.15, test_frac: float = 0.15) -> tuple:
+    """Chronological split of the panel rows by trade_date.
+
+    Returns (train_mask, val_mask, test_mask, cutoffs) where cutoffs holds the last
+    train date and the last validation date, usable later with split_by_cutoffs().
+    """
+    dates = np.sort(clean_df['trade_date'].unique())
+    n = len(dates)
+    n_val = int(round(n * val_frac))
+    n_test = int(round(n * test_frac))
+    n_train = n - n_val - n_test
+
+    train_mask = clean_df['trade_date'].isin(dates[:n_train]).values
+    val_mask = clean_df['trade_date'].isin(dates[n_train:n_train + n_val]).values
+    test_mask = clean_df['trade_date'].isin(dates[n_train + n_val:]).values
+
+    cutoffs = {
+        'train_end': pd.to_datetime(dates[n_train - 1]).strftime('%Y-%m-%d'),
+        'val_end': pd.to_datetime(dates[n_train + n_val - 1]).strftime('%Y-%m-%d'),
+    }
+    return train_mask, val_mask, test_mask, cutoffs
+
+
+def split_by_cutoffs(clean_df: pd.DataFrame, train_end: str, val_end: str) -> tuple:
+    """Reconstruct train/val/test masks from stored chronological cutoffs."""
+    d = clean_df['trade_date']
+    train_end = pd.to_datetime(train_end)
+    val_end = pd.to_datetime(val_end)
+    train_mask = (d <= train_end).values
+    val_mask = ((d > train_end) & (d <= val_end)).values
+    test_mask = (d > val_end).values
+    return train_mask, val_mask, test_mask
+
+
+def read_model_config(artifact_path) -> dict:
+    """Read the model config.json (feature_columns, split, cutoffs...)."""
+    p = Path(artifact_path) / "config.json"
+    if p.exists():
+        with open(p, encoding='utf-8') as f:
+            return json.load(f)
+    return {}
 
 
 def build_training_dataset() -> tuple:

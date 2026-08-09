@@ -70,6 +70,14 @@ Feature di regime di mercato (condivise, valore uguale per tutti gli strumenti n
 **Training**: MLP `100 → 80 → 20 → 1 (sigmoid)`, loss MSE, ma con **early stopping**
 (`patience=5`, `restore_best_weights=True`) fino a 50 epochs (v1 usava 10 epochs fisse, sotto-addestrato).
 
+### Feature testate e scartate (esperimento v3)
+Sono state testate altre due feature (modello `v3`): `dow_sin`/`dow_cos` (giorno della settimana
+in encoding ciclico) e `days_since_high` (giorni di trading dall'ultimo massimo di chiusura a 252
+giorni, `log1p`). Rispetto a v2 il verify migliorava di poco (R² 0.171 vs 0.163) ma il backtest
+**peggiorava** (Spearman 0.133 vs 0.174; spread cumulato +2.69 vs +3.24; hit-rate short 52.6% vs
+58.3%). Per come il modello è usato (ranking long/short) le due feature non aggiungono valore:
+**v2 (24 feature) resta il modello di produzione**; v1 e v3 sono archiviati in `model_registry`.
+
 ---
 
 ## 3. Inferenza Giornaliera sul Raspberry Pi (`job predict`)
@@ -120,7 +128,12 @@ quando si sospetta un drift dei dati.
 
 ```
 python -m app.cli verify            # (oppure: python -m app.jobs.verify_model)
+python -m app.cli verify --version v4   # valuta un modello specifico (es. holdout v4)
 ```
+
+Se il `config.json` del modello contiene `split: "time"` (con `train_end`/`val_end`), verify e
+backtest riproducono lo split cronologico e valutano **solo sul test holdout** (mai visto
+dall'early stopping), fittando min/max e label solo sul train.
 
 La verifica produce un report testuale in `logs/model_verification_<nome>_<versione>_<data>.txt`
 (in italiano, con le definizioni delle metriche) e logga in console + `hayai.log`. Controlla:
@@ -181,7 +194,25 @@ SPY +0.31% vs universo +0.11%, Spearman medio **+0.17** (6x), hit-rate long>0 66
 long>universe 68%, spread cumulato **+3.24** log vs +1.06. Verifica: RMSE 1.145 (da 1.249), R²
 **0.163** (da 0.004), hit-rate direzionale **62.9%** (da 54.0%).
 
-**Caveat metodologico**: il "test set" usato è anche la `validation_data` dell'early stopping,
-quindi le stime sono lievemente ottimistiche (le epochs sono state scelte sul validation loss).
-Il confronto v1 vs v2 usa la stessa metodologia, quindi il miglioramento relativo è affidabile;
-per un numero più conservativo serve un vero holdout (split 3 vie o time-based).
+**Caveat metodologico (importante)**: il "test set" usato nelle sezioni 5-6 è anche la
+`validation_data` dell'early stopping, quindi i numeri di v2 (R² 0.163, Spearman 0.174) sono
+**ottimistici**: le epochs sono state scelte sul validation loss. Il confronto v1 vs v2 resta
+valido in termini relativi, ma non come stima assoluta della performance.
+
+**Holdout cronologico (v4)** — per avere una stima non contaminata è stato addestrato `v4` con
+split per data **70/15/15** (train ≤ 2025-02-28, val ≤ 2025-11-12, test dal 2025-11-13), con
+scaler e label fittati solo sul train e test **mai visto dall'early stopping** (registrato come
+`draft`, non attivo). Risultati sul holdout:
+- Verify: R² **≈ 0** (−0.004), RMSE ≈ baseline (il modello non supera "predici la media"),
+  hit-rate direzionale 53.8%.
+- Backtest (36 ribilanciamenti non sovrapposti): Spearman **+0.077**, LONG +0.57% vs SPY +0.36%
+  vs universo +0.39% per 5gg, SHORT ≈ rumore (hit-rate 50%), spread cumulato +0.41.
+
+**Interpretazione**: l'edge cross-sezionale reale è molto più debole di quanto suggerissero i
+numeri random-split. Resta un **tilt long-only** del top-5 che batte leggermente SPY (il lato
+più difendibile), mentre il lato short e l'RMSE non hanno valore predittivo robusto. La parte
+quant va quindi trattata come input debole dell'ibrido, con il modificatore LLM dominante.
+
+**Esperimento v3**: l'aggiunta di `dow_sin`/`dow_cos` e `days_since_high` non ha aiutato la
+selezione (Spearman 0.133 vs 0.174 sul random split). **v2 resta il modello attivo e di
+produzione**.

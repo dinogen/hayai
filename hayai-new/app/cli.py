@@ -53,6 +53,7 @@ def main():
     parser.add_argument("--portfolio", type=str, default="main", help="Portfolio code (default: main)")
     parser.add_argument("--force", action="store_true", help="Force refresh even if metadata is fresh")
     parser.add_argument("--days", type=int, default=14, help="Retention days for cleanup job (default: 14)")
+    parser.add_argument("--version", type=str, default=None, help="Model version for verify/backtest (default: active model)")
     
     args = parser.parse_args()
     job_name = args.job
@@ -68,6 +69,8 @@ def main():
             result_details = job_func(portfolio_code=portfolio_code, force=args.force)
         elif "days" in inspect.signature(job_func).parameters:
             result_details = job_func(portfolio_code=portfolio_code, days=args.days)
+        elif "model_version" in inspect.signature(job_func).parameters:
+            result_details = job_func(portfolio_code=portfolio_code, model_version=args.version)
         else:
             result_details = job_func(portfolio_code=portfolio_code)
         

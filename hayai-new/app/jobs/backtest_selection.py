@@ -9,8 +9,8 @@ import onnxruntime as ort
 from sklearn.model_selection import train_test_split
 
 from app.config import settings
-from app.jobs.dataset_builder import build_training_dataset
-from app.jobs.verify_model import _load_active_model, _load_onnx_session
+from app.jobs.dataset_builder import build_training_dataset, read_model_config, split_by_cutoffs
+from app.jobs.verify_model import _load_model, _load_onnx_session
 from app.logging_setup import setup_logger
 
 logger = setup_logger("app.jobs.backtest_selection")
@@ -54,10 +54,12 @@ def _per_date_stats(sub: pd.DataFrame, top_n: int, bottom_n: int) -> dict:
     }
 
 
-def run_backtest_job(portfolio_code: str = "main", top_n: int = 5, bottom_n: int = 5) -> dict:
-    logger.info(f"Running selection backtest for portfolio '{portfolio_code}' (top={top_n}, bottom={bottom_n})...")
+def run_backtest_job(portfolio_code: str = "main", top_n: int = 5, bottom_n: int = 5,
+                     model_version: str = None) -> dict:
+    logger.info(f"Running selection backtest for portfolio '{portfolio_code}' "
+                f"(top={top_n}, bottom={bottom_n}, version={model_version or 'active'})...")
 
-    model_info = _load_active_model(portfolio_code)
+    model_info = _load_model(portfolio_code, model_version)
     if not model_info:
         logger.error("No active model found in model_registry. Skipping backtest.")
         return {"status": "no_active_model", "report_file": None}
@@ -75,6 +77,9 @@ def run_backtest_job(portfolio_code: str = "main", top_n: int = 5, bottom_n: int
         logger.warning(f"Artifact path {artifact_path} not found, falling back to {DEFAULT_MODEL_DIR}")
         artifact_path = DEFAULT_MODEL_DIR
 
+    model_config = read_model_config(artifact_path)
+    split_mode = model_config.get("split", "random")
+
     ort_session, input_name = _load_onnx_session(artifact_path)
 
     logger.info("Building dataset from database...")
@@ -87,11 +92,31 @@ def run_backtest_job(portfolio_code: str = "main", top_n: int = 5, bottom_n: int
 
     X = clean_df[feature_cols]
     y = clean_df["target"]
+
+    if split_mode == "time":
+        train_end = model_config.get("train_end")
+        val_end = model_config.get("val_end")
+        if not train_end or not val_end:
+            logger.error("Model config missing train_end/val_end for time split. Aborting.")
+            return {"status": "missing_cutoffs", "report_file": None}
+        train_mask, val_mask, test_mask = split_by_cutoffs(clean_df, train_end, val_end)
+        X_train_raw = clean_df.loc[train_mask, feature_cols]
+        mins = X_train_raw.min()
+        maxs = X_train_raw.max()
+        label_min_rec = float(clean_df.loc[train_mask, "target"].min())
+        label_max_rec = float(clean_df.loc[train_mask, "target"].max())
+    else:
+        test_mask = None
+        train_mask = None
+
     X_norm = (X - mins) / (maxs - mins + 1e-8)
     y_norm = (y - label_min_rec) / (label_max_rec - label_min_rec + 1e-8)
 
-    _, X_test, _, _ = train_test_split(X_norm, y_norm, test_size=0.2, random_state=42)
-    test_mask = clean_df.index.isin(X_test.index)
+    if split_mode == "time":
+        test_mask = clean_df.index.isin(clean_df.loc[test_mask].index)
+    else:
+        _, X_test, _, _ = train_test_split(X_norm, y_norm, test_size=0.2, random_state=42)
+        test_mask = clean_df.index.isin(X_test.index)
 
     logger.info("Running ONNX inference over the whole panel...")
     raw_pred = ort_session.run(None, {input_name: X_norm.to_numpy(dtype=np.float32)})[0].ravel()
@@ -142,6 +167,7 @@ def run_backtest_job(portfolio_code: str = "main", top_n: int = 5, bottom_n: int
         artifact_path=str(artifact_path),
         timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         portfolio=portfolio_code,
+        split_mode=split_mode,
         top_n=top_n,
         bottom_n=bottom_n,
         test_stats=test_stats,
@@ -204,9 +230,13 @@ def _stats_block(title: str, s: dict) -> str:
 
 
 def _build_report(model_name, model_version, artifact_path, timestamp, portfolio,
-                  top_n, bottom_n, test_stats, all_stats, non_overlap,
+                  split_mode, top_n, bottom_n, test_stats, all_stats, non_overlap,
                   test_min, test_max, panel_rows, rebalances) -> str:
     sep = "=" * 78
+    if split_mode == 'time':
+        test_desc = "HOLDOUT CRONOLOGICO (ultime date, mai usate dall'early stopping)"
+    else:
+        test_desc = "out-of-sample, 20% split random_state=42"
     lines = [
         sep,
         "REPORT BACKTEST SELEZIONE LONG/SHORT — HAYAI v2",
@@ -218,7 +248,7 @@ def _build_report(model_name, model_version, artifact_path, timestamp, portfolio
         f"Strategia    : LONG top-{top_n} / SHORT bottom-{bottom_n} per quant_score",
         f"Target       : ritorno forward a 5 giorni (log-ret; quant_score in unita' ln-return/vol_20)",
         "",
-        f"PANNELLO TEST (out-of-sample, 20% split random_state=42)",
+        f"PANNELLO TEST ({test_desc})",
         f"  Righe test : {panel_rows}",
         f"  Periodo    : {test_min} -> {test_max}",
         f"  Ribilanciamento non sovrapposto: ogni {REBALANCE_STEP} giorni di trading ({rebalances} date)",
@@ -258,4 +288,5 @@ def _build_report(model_name, model_version, artifact_path, timestamp, portfolio
 
 if __name__ == "__main__":
     portfolio = sys.argv[1] if len(sys.argv) > 1 else "main"
-    run_backtest_job(portfolio_code=portfolio)
+    version = sys.argv[2] if len(sys.argv) > 2 else None
+    run_backtest_job(portfolio_code=portfolio, model_version=version)
