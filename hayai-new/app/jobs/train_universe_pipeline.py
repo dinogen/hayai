@@ -2,18 +2,22 @@ import os
 import time
 import json
 import requests
-import numpy as np
 import pandas as pd
 import yfinance as yf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Input
+from tensorflow.keras.callbacks import EarlyStopping
 from sklearn.model_selection import train_test_split
 
 from app.db import get_db_connection, execute_query
 from app.jobs.cache import load_cached, save_cached
+from app.jobs.dataset_builder import build_training_dataset
 from app.logging_setup import setup_logger
 
 logger = setup_logger("app.jobs.train_universe_pipeline")
+
+MODEL_NAME = "stock_model"
+MODEL_VERSION = "v2"
 
 UNIVERSE_SYMBOLS = [
     # Mega Cap Tech & Growth
@@ -163,85 +167,19 @@ def download_historical_data(period="5y"):
 
 def build_dataset_and_train():
     logger.info("Building dataset from database for training...")
-    rows = execute_query("""
-        SELECT p.instrument_id, i.symbol, p.trade_date, p.open, p.high, p.low, p.close, p.volume
-        FROM price_daily p
-        JOIN instrument i ON p.instrument_id = i.id
-        ORDER BY p.instrument_id, p.trade_date
-    """)
-    raw_df = pd.DataFrame(rows)
-
-    if raw_df.empty:
-        logger.error("No price data found in database for training.")
+    dataset = build_training_dataset()
+    if dataset is None:
         return
 
-    logger.info(f"Loaded {len(raw_df)} price rows. Computing features...")
-
-    for col in ['open', 'high', 'low', 'close', 'volume']:
-        raw_df[col] = pd.to_numeric(raw_df[col], errors='coerce')
-    raw_df['trade_date'] = pd.to_datetime(raw_df['trade_date'])
-
-    feature_cols = [
-        'log_return', 'mom_5', 'mom_10', 'mom_20',
-        'vol_10', 'vol_20', 'vol_ratio', 'zscore_20',
-        'trend_50', 'vol_regime', 'mom_vol_adj', 'volume_shock'
-    ]
-
-    feature_dfs = []
-    for symbol, group in raw_df.groupby('symbol'):
-        df = group.sort_values('trade_date').copy()
-        df['log_return'] = np.log(df['close'] / df['close'].shift(5))
-        df['mom_5'] = df['close'].pct_change(5)
-        df['mom_10'] = df['close'].pct_change(10)
-        df['mom_20'] = df['close'].pct_change(20)
-
-        df['vol_10'] = df['log_return'].rolling(10).std()
-        df['vol_20'] = df['log_return'].rolling(20).std()
-        df['vol_ratio'] = df['vol_10'] / df['vol_20']
-
-        ma_20 = df['close'].rolling(20).mean()
-        std_20 = df['close'].rolling(20).std()
-        df['zscore_20'] = (df['close'] - ma_20) / std_20
-
-        ma_50 = df['close'].rolling(50).mean()
-        df['trend_50'] = (df['close'] - ma_50) / ma_50
-
-        log_ret_1 = np.log(df['close'] / df['close'].shift(1))
-        vol_10_reg = log_ret_1.rolling(10).std()
-        vol_60_reg = log_ret_1.rolling(60).std()
-        df['vol_regime'] = vol_10_reg / vol_60_reg
-
-        df['mom_vol_adj'] = df['mom_20'] / df['vol_20']
-
-        vol_mean_20 = df['volume'].rolling(20).mean()
-        df['volume_shock'] = df['volume'] / vol_mean_20
-
-        # Target: forward return over 5 days, scaled by volatility 20
-        fwd_close = df['close'].shift(-5)
-        df['target'] = np.log(fwd_close / df['close']) / df['vol_20']
-        df['target'] = df['target'].clip(-3.0, 3.0)
-
-        feature_dfs.append(df)
-
-    full_df = pd.concat(feature_dfs, ignore_index=True)
-
-    clean_df = full_df.dropna(subset=feature_cols + ['target']).copy()
-    
-    if clean_df.empty:
-        logger.error("Clean dataset is empty after dropping NaNs.")
-        return
+    clean_df, feature_cols, mins, maxs, label_min, label_max = dataset
 
     X = clean_df[feature_cols]
     y = clean_df['target']
 
     # Min-max normalization
-    mins = X.min()
-    maxs = X.max()
     X_norm = (X - mins) / (maxs - mins + 1e-8)
 
     # Normalize target between 0 and 1 for sigmoid output
-    label_min = y.min()
-    label_max = y.max()
     y_norm = (y - label_min) / (label_max - label_min + 1e-8)
 
     X_train, X_test, y_train, y_test = train_test_split(X_norm, y_norm, test_size=0.2, random_state=42)
@@ -257,10 +195,12 @@ def build_dataset_and_train():
     ])
 
     model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mae'])
-    model.fit(X_train, y_train, epochs=10, batch_size=64, validation_data=(X_test, y_test), verbose=1)
+    early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+    model.fit(X_train, y_train, epochs=50, batch_size=64,
+              validation_data=(X_test, y_test), verbose=1, callbacks=[early_stopping])
 
     # Save outputs
-    model_dir = os.path.abspath("model/stock_model/v1")
+    model_dir = os.path.abspath(f"model/{MODEL_NAME}/{MODEL_VERSION}")
     os.makedirs(model_dir, exist_ok=True)
 
     keras_path = os.path.join(model_dir, "model.keras")
@@ -324,12 +264,13 @@ def build_dataset_and_train():
                     clip_max = VALUES(clip_max),
                     status = 'active'
             """, (
-                "stock_model", "v1", model_dir, json.dumps(feature_cols),
+                MODEL_NAME, MODEL_VERSION, model_dir, json.dumps(feature_cols),
                 float(label_min), float(label_max), clip_min, clip_max,
                 json.dumps({"samples": int(len(clean_df))})
             ))
             model_id = cursor.lastrowid
-            cursor.execute("SELECT id FROM model_registry WHERE name='stock_model' AND version='v1'")
+            cursor.execute("SELECT id FROM model_registry WHERE name=%s AND version=%s",
+                           (MODEL_NAME, MODEL_VERSION))
             row = cursor.fetchone()
             if row:
                 model_id = row['id']

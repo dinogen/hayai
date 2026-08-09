@@ -11,6 +11,8 @@ from app.jobs.news import run_news_job
 from app.jobs.cleanup import run_cleanup_job
 from app.jobs.sentiment import run_sentiment_job
 from app.jobs.predict import run_predict_job
+from app.jobs.verify_model import run_verify_model_job
+from app.jobs.backtest_selection import run_backtest_job
 from app.jobs.signal import run_signal_job
 from app.jobs.recommend import run_recommend_job
 from app.jobs.nav import run_nav_job
@@ -25,6 +27,8 @@ JOBS_MAP = {
     "cleanup": run_cleanup_job,
     "sentiment": run_sentiment_job,
     "predict": run_predict_job,
+    "verify": run_verify_model_job,
+    "backtest": run_backtest_job,
     "signal": run_signal_job,
     "recommend": run_recommend_job,
     "nav": run_nav_job,

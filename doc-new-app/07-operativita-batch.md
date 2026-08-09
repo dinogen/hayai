@@ -25,6 +25,15 @@ python -m app.cli <job_name> [--portfolio <code>]
 9. **`summaries`**: Compila il riassunto in Markdown per portafoglio e lo salva in `news_summary`.
 10. **`cleanup`**: Elimina le notizie (e relative `news_sentiment` in cascata) più vecchie di 14 giorni e i file cache parquet scaduti in `tmp/`. Il periodo di retention è configurabile con `--days` (default 14).
 
+### Job di Verifica (manuale)
+- **`verify`**: Valuta il modello ML deployato sul dataset attuale (assenza di null/NaN, split 80/20,
+  metriche RMSE/MAE/R²/hit-rate, spot check di 100 righe) e produce un report in
+  `logs/model_verification_*.txt` (vedi `03-ml-pipeline.md` §5). **Non va messo in cron**: è un
+  controllo manuale da lanciare dopo un retraining o in caso di sospetto drift dei dati:
+  ```bash
+  python -m app.cli verify
+  ```
+
 ---
 
 ## 2. Configurazione e Credenziali (`.env` e `.env.example`)
