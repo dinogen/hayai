@@ -8,6 +8,7 @@ from app.logging_setup import setup_logger
 from app.jobs.data import run_data_job
 from app.jobs.metadata import run_metadata_job
 from app.jobs.news import run_news_job
+from app.jobs.news_rss import run_news_rss_job
 from app.jobs.sentiment import run_sentiment_job
 from app.jobs.predict import run_predict_job
 from app.jobs.signal import run_signal_job
@@ -21,6 +22,7 @@ JOBS_MAP = {
     "data": run_data_job,
     "metadata": run_metadata_job,
     "news": run_news_job,
+    "news_rss": run_news_rss_job,
     "sentiment": run_sentiment_job,
     "predict": run_predict_job,
     "signal": run_signal_job,
