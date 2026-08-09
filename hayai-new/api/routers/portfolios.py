@@ -162,25 +162,59 @@ def get_portfolio_signals(code: str):
     return signals
 
 @router.get("/portfolios/{code}/news")
-def get_portfolio_news(code: str):
+def get_portfolio_news(
+    code: str,
+    days: int = 14,
+    sector: str | None = None,
+    symbol: str | None = None,
+    limit: int = 50,
+):
     port = execute_query("SELECT id FROM portfolio WHERE code = %s", (code,))
     if not port:
         raise HTTPException(status_code=404, detail="Portfolio not found")
     
     portfolio_id = port[0]['id']
-    news = execute_query("""
+    query = """
         SELECT n.id, n.title, n.publisher, n.link, n.published_at, n.summary,
-        i.symbol, ns.sentiment, ns.confidence, ns.catalyst, ns.rationale as ai_rationale
+        i.symbol, i.name as instrument_name, i.sector, i.area,
+        ns.sentiment, ns.confidence, ns.catalyst, ns.rationale as ai_rationale
         FROM news n
         JOIN instrument i ON n.instrument_id = i.id
         JOIN portfolio_instrument pi ON i.id = pi.instrument_id
         LEFT JOIN news_sentiment ns ON n.id = ns.news_id
         WHERE pi.portfolio_id = %s
-        ORDER BY n.published_at DESC
-        LIMIT 50
-    """, (portfolio_id,))
+        AND n.published_at >= DATE_SUB(NOW(), INTERVAL %s DAY)
+    """
+    params: list = [portfolio_id, days]
 
-    return news
+    if sector:
+        query += " AND i.sector = %s"
+        params.append(sector)
+    if symbol:
+        query += " AND i.symbol = %s"
+        params.append(symbol)
+
+    query += " ORDER BY n.published_at DESC LIMIT %s"
+    params.append(limit)
+
+    return execute_query(query, tuple(params))
+
+
+@router.get("/news/{news_id}")
+def get_news_detail(news_id: int):
+    news = execute_query("""
+        SELECT n.id, n.title, n.publisher, n.link, n.published_at, n.summary,
+        i.symbol, i.name as instrument_name, i.sector, i.area,
+        ns.sentiment, ns.confidence, ns.catalyst, ns.rationale as ai_rationale
+        FROM news n
+        JOIN instrument i ON n.instrument_id = i.id
+        LEFT JOIN news_sentiment ns ON n.id = ns.news_id
+        WHERE n.id = %s
+    """, (news_id,))
+
+    if not news:
+        raise HTTPException(status_code=404, detail="News not found")
+    return news[0]
 
 @router.get("/portfolios/{code}/summaries/latest")
 def get_latest_summary(code: str):

@@ -8,6 +8,7 @@ from app.logging_setup import setup_logger
 from app.jobs.data import run_data_job
 from app.jobs.metadata import run_metadata_job
 from app.jobs.news import run_news_job
+from app.jobs.cleanup import run_cleanup_job
 from app.jobs.sentiment import run_sentiment_job
 from app.jobs.predict import run_predict_job
 from app.jobs.signal import run_signal_job
@@ -21,6 +22,7 @@ JOBS_MAP = {
     "data": run_data_job,
     "metadata": run_metadata_job,
     "news": run_news_job,
+    "cleanup": run_cleanup_job,
     "sentiment": run_sentiment_job,
     "predict": run_predict_job,
     "signal": run_signal_job,
@@ -46,6 +48,7 @@ def main():
     parser.add_argument("job", choices=list(JOBS_MAP.keys()), help="Name of the batch job to run")
     parser.add_argument("--portfolio", type=str, default="main", help="Portfolio code (default: main)")
     parser.add_argument("--force", action="store_true", help="Force refresh even if metadata is fresh")
+    parser.add_argument("--days", type=int, default=14, help="Retention days for cleanup job (default: 14)")
     
     args = parser.parse_args()
     job_name = args.job
@@ -59,6 +62,8 @@ def main():
         job_func = JOBS_MAP[job_name]
         if "force" in inspect.signature(job_func).parameters:
             result_details = job_func(portfolio_code=portfolio_code, force=args.force)
+        elif "days" in inspect.signature(job_func).parameters:
+            result_details = job_func(portfolio_code=portfolio_code, days=args.days)
         else:
             result_details = job_func(portfolio_code=portfolio_code)
         

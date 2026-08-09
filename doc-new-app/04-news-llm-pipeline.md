@@ -79,3 +79,12 @@ Parallelamente all'analisi quantitativa, il batch genera un documento **Markdown
 ```
 
 Questo file viene salvato sia nella colonna `markdown` della tabella `news_summary` sia esportato in una cartella locale per eventuale archivio.
+
+---
+
+## 5. Retention e Pulizia
+
+Le notizie (e le relative `news_sentiment` in cascata) vengono conservate per **14 giorni**
+per default. Il job batch `cleanup` (vedi `07-operativita-batch.md`) elimina le notizie
+più vecchie del periodo di retention e rimuove anche i file cache parquet scaduti in `tmp/`
+(`*_news.parquet` e `*_gnews.parquet`). Il periodo è configurabile con `--days`.

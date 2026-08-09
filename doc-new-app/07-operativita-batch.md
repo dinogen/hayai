@@ -23,6 +23,7 @@ python -m app.cli <job_name> [--portfolio <code>]
 7. **`recommend`**: Calcola i pesi finali long/short e popola `portfolio_recommendation`.
 8. **`nav`**: Mark-to-Market giornaliero: allinea le posizioni simulate alla raccomandazione e calcola NAV/cash in `portfolio_position` e `portfolio_cash`.
 9. **`summaries`**: Compila il riassunto in Markdown per portafoglio e lo salva in `news_summary`.
+10. **`cleanup`**: Elimina le notizie (e relative `news_sentiment` in cascata) più vecchie di 14 giorni e i file cache parquet scaduti in `tmp/`. Il periodo di retention è configurabile con `--days` (default 14).
 
 ---
 
@@ -64,6 +65,7 @@ Crontab dell'utente `hayai` sul Raspberry Pi per l'esecuzione automatica notturn
 45 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli recommend >> logs/cron.log 2>&1
 50 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli nav >> logs/cron.log 2>&1
 00 4 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli summaries >> logs/cron.log 2>&1
+30 4 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli cleanup --days 14 >> logs/cron.log 2>&1
 
 # Backup giornaliero del database alle 04:15
 0  4 * * *     cd /opt/hayai-new && scripts/backup.sh >> logs/backup.log 2>&1

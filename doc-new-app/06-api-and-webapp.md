@@ -23,7 +23,8 @@ Gira su uvicorn (`127.0.0.1:8000`) ed è esposta al browser tramite `nginx`.
 | `/api/portfolios/{code}/holdings` | GET | **Portafoglio attuale**: posizioni detenute (long/short), P&L, cash, NAV, watchlist e ultime raccomandazioni |
 | `/api/portfolios/{code}/holdings/save` | POST | **Salvataggio portafoglio attuale**: applica lo stato desiderato (diff → `portfolio_trade` → snapshot posizioni → ricalcolo cash) |
 | `/api/portfolios/{code}/signals` | GET | Segnali ibridi (Quant Score + Sentiment IA) per strumento |
-| `/api/portfolios/{code}/news` | GET | Notizie recenti collegate agli strumenti del portafoglio |
+| `/api/portfolios/{code}/news` | GET | Notizie recenti collegate agli strumenti del portafoglio. Parametri opzionali: `?days=14` (retention, default 14), `?sector=` (filtro settore), `?symbol=` (filtro ticker), `?limit=50` (limite righe). Ogni notizia include `sector`, `area`, `sentiment`, `confidence` |
+| `/api/news/{news_id}` | GET | Dettaglio di una singola notizia (titolo, publisher, data, summary, link originale, sentiment e rationale IA) |
 | `/api/portfolios/{code}/summaries/latest` | GET | **Riassunto Markdown giornaliero** generato da DeepSeek |
 | `/api/portfolios/{code}/config` | POST | **Aggiornamento configurazione**: body `{"max_assets": N}` (intero ≥ 1); aggiorna il cap massimo asset del portafoglio e restituisce i parametri correnti |
 
@@ -81,3 +82,5 @@ Ogni asset raccomandato è presentato sotto forma di **Scheda Tesi di Investimen
 2. **Portafoglio Attuale (`/portfolio`)**: Vista e **modifica manuale** delle posizioni effettivamente detenute (long/short). Tabella editor con `qty` e `avg_price` modificabili, toggle side, chiusura posizione e apertura di nuove posizioni dalla watchlist. Pulsante **"Applica Raccomandazioni del Modello"** (popola l'editor con la composizione target alla lettera) e pulsante **"SALVA"** che persiste via `POST /holdings/save`. Short rappresentato con `qty` negativa; P&L posizione = `qty × (close − avg_price)`.
 3. **Tabella Segnali (`/portfolios/:code/signals`)**: Elenco completo di tutti gli strumenti del portafoglio con il dettaglio di come il punteggio matematico è stato corretto dal sentiment dell'IA.
 4. **Notizie & Riassunti (`/portfolios/:code/news`)**: Visualizzatore Markdown formattato dei riassunti giornalieri creati da DeepSeek, con link diretti alle fonti originali di yfinance.
+5. **Notizie Watchlist (`/news`)**: Vista a card compatte delle notizie recenti della watchlist, **raggruppate per settore** (`sector`), con badge sentiment colorato, filtri (periodo, settore, simbolo, "solo con sentiment") e paginazione incrementale ("Mostra altre notizie"). Ogni titolo è cliccabile.
+6. **Dettaglio Notizia (`/news/:id`)**: Pagina di dettaglio di una singola notizia con titolo, editore, data, riassunto, analisi sentiment IA (con catalizzatore e rationale) e pulsante "Leggi la notizia originale" verso la fonte (es. finance.yahoo.com).

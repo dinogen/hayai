@@ -34,8 +34,13 @@ export class ApiService {
     return this.http.get(`${this.baseUrl}/portfolios/${code}/signals`);
   }
 
-  getNews(code: string): Observable<any> {
-    return this.http.get(`${this.baseUrl}/portfolios/${code}/news`);
+  getNews(code: string, params?: any): Observable<any> {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.http.get(`${this.baseUrl}/portfolios/${code}/news${qs}`);
+  }
+
+  getNewsDetail(newsId: number): Observable<any> {
+    return this.http.get(`${this.baseUrl}/news/${newsId}`);
   }
 
   getLatestSummary(code: string): Observable<any> {
