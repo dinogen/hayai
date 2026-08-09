@@ -40,7 +40,7 @@ import { ApiService } from '../../core/services/api.service';
           </label>
           <label style="display: flex; align-items: center; gap: 0.5rem; color: #334155;">
             <input type="checkbox" [checked]="onlySentiment()" (change)="onOnlySentimentChange($event)" />
-            Solo con analisi sentiment
+            Solo con analisi IA
           </label>
           <span style="margin-left: auto; color: #64748b;">{{ totalShown() }} / {{ totalCount() }} notizie</span>
         </div>
@@ -60,7 +60,7 @@ import { ApiService } from '../../core/services/api.service';
           <div style="display: flex; flex-direction: column; gap: 0.75rem;">
             <div *ngFor="let n of group.items" style="display: flex; gap: 0.75rem; align-items: flex-start; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 4px; background: #f8fafc;">
               <div style="flex-shrink: 0; margin-top: 0.2rem;">
-                <span [style.background]="sentimentColor(n.sentiment)" title="{{ n.sentiment || 'Non analizzata' }}"
+                <span [style.background]="sentimentColor(n.impact_score)" title="{{ scoreLabel(n.impact_score) }}"
                   style="display: inline-block; width: 10px; height: 10px; border-radius: 50%;"></span>
               </div>
               <div style="flex: 1; min-width: 0;">
@@ -69,7 +69,7 @@ import { ApiService } from '../../core/services/api.service';
                 </a>
                 <div style="font-family: 'JetBrains Mono'; font-size: 0.72rem; color: #64748b; margin-top: 0.25rem;">
                   {{ n.symbol }} · {{ n.publisher || '—' }} · {{ formatDate(n.published_at) }}
-                  <ng-container *ngIf="n.sentiment"> · {{ n.sentiment | uppercase }}</ng-container>
+                  <ng-container *ngIf="n.impact_score != null"> · {{ n.impact_score | number:'1.1-1' }} · durata {{ durationLabel(n.impact_duration) }}</ng-container>
                   <ng-container *ngIf="n.confidence"> ({{ (n.confidence * 100) | number:'1.0-0' }}%)</ng-container>
                 </div>
               </div>
@@ -143,7 +143,7 @@ export class NewsComponent implements OnInit {
 
   groups() {
     const filtered = this.onlySentiment()
-      ? this.items().filter((n) => n.sentiment)
+      ? this.items().filter((n) => n.impact_score != null)
       : this.items();
     const map = new Map<string, any[]>();
     for (const n of filtered) {
@@ -158,7 +158,7 @@ export class NewsComponent implements OnInit {
 
   totalShown() {
     return this.onlySentiment()
-      ? this.items().filter((n) => n.sentiment).length
+      ? this.items().filter((n) => n.impact_score != null).length
       : this.items().length;
   }
 
@@ -197,10 +197,22 @@ export class NewsComponent implements OnInit {
     return isNaN(dt.getTime()) ? String(d) : dt.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
-  sentimentColor(s: any) {
-    if (s === 'bullish') return '#16a34a';
-    if (s === 'bearish') return '#dc2626';
-    if (s === 'neutral') return '#eab308';
-    return '#94a3b8';
+  sentimentColor(score: any) {
+    if (score == null) return '#94a3b8';
+    if (score > 0.5) return '#16a34a';
+    if (score < -0.5) return '#dc2626';
+    return '#eab308';
+  }
+
+  scoreLabel(score: any) {
+    if (score == null) return 'Non analizzata';
+    if (score > 0) return 'Rialzista';
+    if (score < 0) return 'Ribassista';
+    return 'Neutrale';
+  }
+
+  durationLabel(d: any) {
+    const map: any = { brief: 'breve', medium: 'media', long: 'lunga' };
+    return map[d] || 'media';
   }
 }

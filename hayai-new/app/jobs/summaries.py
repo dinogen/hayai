@@ -20,7 +20,7 @@ def run_summaries_job(portfolio_code: str = "main") -> dict:
     # Fetch recent news + sentiment for portfolio instruments (last 2 days)
     news_items = execute_query("""
         SELECT i.symbol, i.name as instrument_name, n.title, n.publisher, n.link, n.published_at,
-               ns.sentiment, ns.confidence, ns.rationale
+               ns.impact_score, ns.impact_duration, ns.confidence, ns.rationale
         FROM news n
         JOIN instrument i ON n.instrument_id = i.id
         JOIN portfolio_instrument pi ON i.id = pi.instrument_id
@@ -53,11 +53,16 @@ def run_summaries_job(portfolio_code: str = "main") -> dict:
         for sym, data in grouped.items():
             lines.append(f"### {sym} — {data['name']}\n")
             for news in data['items']:
-                sent = (news['sentiment'] or 'neutral').upper()
-                emoji = "🟢" if sent == 'BULLISH' else ("🔴" if sent == 'BEARISH' else "🟡")
-                conf = f"({float(news['confidence'])*100:.0f}%)" if news['confidence'] else ""
-                
-                lines.append(f"- **{news['title']}** {emoji} *{sent} {conf}*")
+                score = news['impact_score']
+                if score is not None:
+                    score = float(score)
+                    emoji = "🟢" if score > 0.5 else ("🔴" if score < -0.5 else "🟡")
+                    direction = "BULLISH" if score > 0 else ("BEARISH" if score < 0 else "NEUTRAL")
+                    dur_label = {'brief': 'breve', 'medium': 'media', 'long': 'lunga'}.get(news['impact_duration'], 'media')
+                    conf = f"({float(news['confidence'])*100:.0f}%)" if news['confidence'] else ""
+                    lines.append(f"- **{news['title']}** {emoji} *{direction} {score:+.1f} · durata {dur_label} {conf}*")
+                else:
+                    lines.append(f"- **{news['title']}**")
                 lines.append(f"  - *Editore:* {news['publisher']} · *Data:* {news['published_at']}")
                 if news['rationale']:
                     lines.append(f"  - *Analisi IA:* {news['rationale']}")

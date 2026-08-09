@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from datetime import date, timedelta
 from app.db import execute_query
+import json
 
 router = APIRouter()
 
@@ -150,7 +151,7 @@ def get_portfolio_signals(code: str):
     
     portfolio_id = port[0]['id']
     signals = execute_query("""
-        SELECT ps.signal_date, ps.quant_score, ps.llm_sentiment_modifier, ps.final_signal, ps.ai_rationale,
+        SELECT ps.signal_date, ps.quant_score, ps.llm_sentiment_modifier, ps.final_signal, ps.ai_rationale, ps.sentiment_breakdown,
         i.symbol, i.name, i.instrument_type
         FROM portfolio_signal ps
         JOIN instrument i ON ps.instrument_id = i.id
@@ -158,6 +159,13 @@ def get_portfolio_signals(code: str):
         AND ps.signal_date = (SELECT MAX(signal_date) FROM portfolio_signal WHERE portfolio_id = %s)
         ORDER BY ps.final_signal DESC
     """, (portfolio_id, portfolio_id))
+
+    for s in signals:
+        if s.get('sentiment_breakdown'):
+            try:
+                s['sentiment_breakdown'] = json.loads(s['sentiment_breakdown'])
+            except (TypeError, ValueError):
+                s['sentiment_breakdown'] = None
 
     return signals
 
@@ -177,7 +185,7 @@ def get_portfolio_news(
     query = """
         SELECT n.id, n.title, n.publisher, n.link, n.published_at, n.summary,
         i.symbol, i.name as instrument_name, i.sector, i.area,
-        ns.sentiment, ns.confidence, ns.catalyst, ns.rationale as ai_rationale
+        ns.impact_score, ns.impact_duration, ns.impact_surface, ns.confidence, ns.catalyst, ns.rationale as ai_rationale
         FROM news n
         JOIN instrument i ON n.instrument_id = i.id
         JOIN portfolio_instrument pi ON i.id = pi.instrument_id
@@ -205,7 +213,7 @@ def get_news_detail(news_id: int):
     news = execute_query("""
         SELECT n.id, n.title, n.publisher, n.link, n.published_at, n.summary,
         i.symbol, i.name as instrument_name, i.sector, i.area,
-        ns.sentiment, ns.confidence, ns.catalyst, ns.rationale as ai_rationale
+        ns.impact_score, ns.impact_duration, ns.impact_surface, ns.confidence, ns.catalyst, ns.rationale as ai_rationale
         FROM news n
         JOIN instrument i ON n.instrument_id = i.id
         LEFT JOIN news_sentiment ns ON n.id = ns.news_id

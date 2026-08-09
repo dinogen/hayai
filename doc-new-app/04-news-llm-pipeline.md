@@ -2,7 +2,12 @@
 
 Questo documento descrive come la nuova applicazione acquisisce le notizie
 finanziarie da **yfinance**, le analizza tramite l'API di **DeepSeek** per estrarre
-sentiment e tesi di investimento, e genera i riassunti in markdown per la webapp.
+impatto, durata, superficie e tesi di investimento, e genera i riassunti in
+markdown per la webapp.
+
+> **Metodo di riferimento**: il principio di lettura delle notizie è descritto in
+> `appunti-notizie.md` — *"Non valutare la notizia. Valuta la sorpresa rispetto alle
+> attese e il suo potenziale impatto sui prezzi."*
 
 ---
 
@@ -25,35 +30,79 @@ Per evitare risposte ambigue o formati non parsabili, si forza il modello a rest
 **Schema del Prompt inviato a DeepSeek:**
 ```text
 Sei un analista finanziario quantitativo ed esperto di mercati.
-Analizza la seguente notizia finanziaria relativa allo strumento finanziario {symbol} ({instrument_name}).
+Analizza la seguente notizia finanziaria relativa allo strumento {symbol} ({instrument_name}),
+che appartiene all'area {area}.
 
 Titolo: {title}
 Editore: {publisher}
 Testo/Estratto: {summary}
 
-Compito:
-Valuta l'impatto di questa notizia sul prezzo a breve/medio termine dello strumento.
+Metodo: NON valutare la notizia in sé ("è buona o cattiva"). Valuta la SORPRESA
+rispetto a ciò che il mercato si aspettava e il POTENZIALE IMPATTO sui prezzi.
+
+Ragiona in questo ordine:
+1. CHE COSA è successo (fatto osservabile).
+2. COSA si aspettava il mercato: cerca nel testo riferimenti espliciti alle attese
+   ("beats/misses expectations", "above/below consensus", "guidance raised/cut").
+   Se il testo NON fornisce il confronto con le attese, la sorpresa è debole:
+   abbassa la confidence e mantieni l'impatto moderato.
+3. SORPRESA: quanto l'esito si discosta dalle attese (molto positiva / positiva /
+   neutrale / negativa / molto negativa).
+4. MECCANISMO: perché questo dovrebbe muovere i prezzi (catena causale,
+   es. inflazione ↑ → tassi attesi ↑ → costo del capitale ↑ → azioni growth ↓).
+5. CHI GUADAGNA E CHI PERDE: individua le aree geografiche colpite. Per notizie
+   specifiche dell'azienda usa principalmente l'area {area}; per notizie macro
+   (Fed, inflazione, tassi, petrolio) indica tutte le aree colpite.
+
 Restituisci UN UNICO oggetto JSON valido (senza blocchi markdown di contorno) con esattamente questa struttura:
 {
-  "sentiment": "bullish" o "neutral" o "bearish",
-  "confidence": <valore float tra 0.0 e 1.0>,
+  "impact_score": <float da -5.0 a +5.0; il segno indica la direzione, la magnitudo la forza della sorpresa>,
+  "impact_duration": "brief" per effetto di poche ore, "medium" per giorni, "long" per settimane/mesi,
+  "impact_surface": "<CSV di aree colpite tra: usa, eu, asia, emerging, other>",
+  "confidence": <float tra 0.0 e 1.0>,
   "catalyst": "<breve etichetta del catalizzatore, es. 'Earnings beat', 'Regulatory risk', 'Macro data', 'Product launch' o 'General'>",
-  "rationale_it": "<Una spiegazione concisa e professionale in lingua italiana, di 2-3 frasi, che spieghi perché questa notizia influenza lo strumento e quale tesi di investimento supporta>"
+  "rationale_it": "<2-3 frasi professionali in lingua italiana: la sorpresa rispetto alle attese, il meccanismo economico e quale tesi di investimento supporta>"
 }
 ```
 
 ### 2.2 Salvataggio in MariaDB
-L'output JSON restituito da DeepSeek viene validato e salvato nella tabella `news_sentiment`, legata alla notizia in `news`.
+L'output JSON restituito da DeepSeek viene validato (clamp di `impact_score` a
+±5.0, durata in `{brief, medium, long}`, superficie filtrata sui codici area) e
+salvato nella tabella `news_sentiment`, legata alla notizia in `news`.
 
 ---
 
 ## 3. Generazione del Segnale Ibrido (`portfolio_signal`)
 
 Una volta analizzate le notizie del giorno per un dato strumento:
-1. Si calcola un **Sentiment Score medio ponderato** per la giornata (pesato sulla `confidence` delle notizie recenti, es. ultime 24-48 ore).
-2. Si converte il sentiment score in un `llm_sentiment_modifier` (range da `-0.20` a `+0.20`).
-3. Si unisce al `quant_score` proveniente dal modello Keras per formare il `final_signal`.
-4. Si consolida l'attributo `ai_rationale` unendo i punti chiave estratti da DeepSeek in un testo coerente, che costituirà la **motivazione** consultabile nella webapp.
+
+1. **Candidati**: si raccolgono le notizie degli ultimi 14 giorni (finestra di
+   retention) che (a) sono taggate direttamente sullo strumento, oppure (b) hanno
+   un `impact_surface` che copre l'`area` dello strumento (**propagazione macro**).
+2. **Gate di confidenza**: le notizie con `confidence < 0.30` vengono scartate
+   (contributo nullo).
+3. **Decadimento temporale** (`impact_decay`): ogni notizia contribuisce in modo
+   proporzionale a quanto è ancora "fresca" rispetto alla sua durata attesa:
+
+   ```text
+   decay = max(0, 1 - età_notizia_in_ore / orizzonte)
+   orizzonte: brief=24h · medium=96h · long=336h
+   ```
+
+4. **Contributo per notizia**:
+
+   ```text
+   contributo = (impact_score / 5.0) × 0.20 × confidence × decay × fattore_direzione
+   fattore_direzione = 1.0 (diretta) · 0.5 (propagata via impact_surface)
+   ```
+
+5. **Modificatore**: `llm_sentiment_modifier = clamp(Σ contributi, ±0.20)`.
+6. **Segnale finale**: `final_signal = quant_score + llm_sentiment_modifier`.
+7. **Breakdown**: per ogni notizia che ha contribuito si salva un record JSON in
+   `portfolio_signal.sentiment_breakdown` (titolo, `impact_score`, durata,
+   confidenza, età in ore, `decay`, contributo) per il dettaglio nella webapp.
+8. L'attributo `ai_rationale` viene consolidato unendo i titoli delle notizie che
+   hanno contribuito con il loro `impact_score` e `decay`.
 
 ---
 
@@ -65,14 +114,14 @@ Parallelamente all'analisi quantitativa, il batch genera un documento **Markdown
 ```markdown
 # Riepilogo Notizie & Sentiment — Azionario Globale — 2026-08-08
 
-### AAPL — Apple Inc. (Sentiment prevalente: 🟢 Bullish)
-- **Apple announces breakthrough in custom silicon AI accelerators**
+### AAPL — Apple Inc.
+- **Apple announces breakthrough in custom silicon AI accelerators** 🟢 *BULLISH +3.8 · durata media (82%)*
   - *Editore:* Reuters · *Data:* 2026-08-08 06:30
-  - *Analisi IA:* L'annuncio rafforza il vantaggio competitivo nel segmento enterprise e AI edge, supportando una revisione al rialzo delle stime di margine.
+  - *Analisi IA:* L'annuncio supera le attese del mercato sul segmento AI edge, rafforzando il vantaggio competitivo e sostenendo una revisione al rialzo delle stime di margine.
   - [Leggi originale](https://finance.yahoo.com/news/...)
 
-### QQQ — Invesco QQQ Trust (Sentiment prevalente: 🟡 Neutral)
-- **Tech sector awaits upcoming inflation prints**
+### QQQ — Invesco QQQ Trust
+- **Tech sector awaits upcoming inflation prints** 🟡 *NEUTRAL +0.4 · durata breve (61%)*
   - *Editore:* Bloomberg · *Data:* 2026-08-08 04:15
   - *Analisi IA:* Clima di attesa sui mercati azionari tecnologici in vista dei dati macroeconomici statunitensi; assenza di driver direzionali univoci.
   - [Leggi originale](https://finance.yahoo.com/news/...)

@@ -193,11 +193,25 @@ CREATE TABLE news (
 ```
 
 ### 2.10 `news_sentiment`
+Analisi LLM di una notizia basata sul principio **"valuta la sorpresa rispetto alle
+attese, non la notizia"** (metodo: `appunti-notizie.md`). I campi chiave:
+
+- `impact_score`: punteggio continuo da `-5.0` (fortemente ribassista) a `+5.0`
+  (fortemente rialzista). Il segno indica la direzione, la magnitudo la forza della sorpresa.
+- `impact_duration`: durata prevista dell'effetto sul prezzo — `brief` (ore),
+  `medium` (giorni), `long` (settimane/mesi). Determina il decadimento nel job `signal`.
+- `impact_surface`: aree/classi di asset colpite, CSV dei valori `area`
+  (es. `"usa,eu"`). Consente la propagazione delle notizie macro ad altri strumenti.
+- `confidence`: `0..1`, usata sia come peso sia come **gate** (sotto soglia la
+  notizia non contribuisce al segnale).
+
 ```sql
 CREATE TABLE news_sentiment (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     news_id INT UNSIGNED NOT NULL,
-    sentiment ENUM('bullish','neutral','bearish') NOT NULL,
+    impact_score DECIMAL(3,1) NOT NULL,
+    impact_duration ENUM('brief','medium','long') NOT NULL DEFAULT 'medium',
+    impact_surface VARCHAR(255) NULL,
     confidence DECIMAL(4,3) NOT NULL,
     catalyst VARCHAR(128) NULL,
     rationale TEXT NOT NULL,
@@ -205,6 +219,9 @@ CREATE TABLE news_sentiment (
     FOREIGN KEY (news_id) REFERENCES news(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
+
+> **Migrazione**: da DB esistenti, eseguire `sql/migration_news_sentiment_refactor.sql`
+> (converte `bullish→+3`, `neutral→0`, `bearish→−3`).
 
 ### 2.11 `portfolio_signal`
 ```sql
@@ -216,11 +233,16 @@ CREATE TABLE portfolio_signal (
     llm_sentiment_modifier DECIMAL(5,4) NOT NULL DEFAULT 0.0000,
     final_signal DECIMAL(12,6) NOT NULL,
     ai_rationale TEXT NULL,
+    sentiment_breakdown JSON NULL,
     PRIMARY KEY (portfolio_id, instrument_id, signal_date),
     FOREIGN KEY (portfolio_id) REFERENCES portfolio(id) ON DELETE CASCADE,
     FOREIGN KEY (instrument_id) REFERENCES instrument(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
+
+`sentiment_breakdown` contiene il dettaglio per-notizia che ha contribuito al
+`llm_sentiment_modifier` (titolo, `impact_score`, `impact_duration`, `confidence`,
+età in ore, fattore `decay`, contributo), esposto alla webapp per la revisione del martedì.
 
 ### 2.12 `portfolio_trade`
 Log delle operazioni eseguite sul portafoglio attuale (apertura/chiusura long e short).

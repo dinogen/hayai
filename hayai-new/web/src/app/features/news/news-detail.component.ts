@@ -33,12 +33,17 @@ import { ApiService } from '../../core/services/api.service';
             {{ news()!.summary }}
           </div>
 
-          <div *ngIf="news()!.sentiment" style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff;">
-            <span [style.background]="sentimentColor(news()!.sentiment)" style="display: inline-block; width: 12px; height: 12px; border-radius: 50%;"></span>
+          <div *ngIf="news()!.impact_score != null" style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff;">
+            <span [style.background]="sentimentColor(news()!.impact_score)" style="display: inline-block; width: 12px; height: 12px; border-radius: 50%;"></span>
             <div>
               <div style="font-family: 'JetBrains Mono'; font-size: 0.85rem; font-weight: bold; color: #0f172a; text-transform: uppercase;">
-                Sentiment IA: {{ news()!.sentiment }} <span *ngIf="news()!.confidence">({{ (news()!.confidence * 100) | number:'1.0-0' }}%)</span>
+                Impatto IA: {{ news()!.impact_score | number:'1.1-1' }} ({{ scoreLabel(news()!.impact_score) }})
+                <span *ngIf="news()!.confidence"> · confidenza {{ (news()!.confidence * 100) | number:'1.0-0' }}%</span>
                 <span *ngIf="news()!.catalyst"> · Catalizzatore: {{ news()!.catalyst }}</span>
+                <span *ngIf="news()!.impact_duration"> · Durata: {{ durationLabel(news()!.impact_duration) }}</span>
+              </div>
+              <div *ngIf="news()!.impact_surface" style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #64748b; margin-top: 0.25rem; text-transform: uppercase;">
+                Aree colpite: {{ news()!.impact_surface }}
               </div>
               <div style="font-family: 'Rajdhani'; font-size: 1rem; color: #334155; margin-top: 0.25rem;">
                 {{ news()!.ai_rationale }}
@@ -90,10 +95,22 @@ export class NewsDetailComponent implements OnInit {
     return dt.toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' }) + ' · ' + dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
   }
 
-  sentimentColor(s: any) {
-    if (s === 'bullish') return '#16a34a';
-    if (s === 'bearish') return '#dc2626';
-    if (s === 'neutral') return '#eab308';
-    return '#94a3b8';
+  sentimentColor(score: any) {
+    if (score == null) return '#94a3b8';
+    if (score > 0.5) return '#16a34a';
+    if (score < -0.5) return '#dc2626';
+    return '#eab308';
+  }
+
+  scoreLabel(score: any) {
+    if (score == null) return 'Non analizzata';
+    if (score > 0) return 'Rialzista';
+    if (score < 0) return 'Ribassista';
+    return 'Neutrale';
+  }
+
+  durationLabel(d: any) {
+    const map: any = { brief: 'breve', medium: 'media', long: 'lunga' };
+    return map[d] || 'media';
   }
 }

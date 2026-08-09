@@ -146,7 +146,9 @@ CREATE TABLE news (
 CREATE TABLE news_sentiment (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     news_id INT UNSIGNED NOT NULL,
-    sentiment ENUM('bullish','neutral','bearish') NOT NULL,
+    impact_score DECIMAL(3,1) NOT NULL,
+    impact_duration ENUM('brief','medium','long') NOT NULL DEFAULT 'medium',
+    impact_surface VARCHAR(255) NULL,
     confidence DECIMAL(4,3) NOT NULL,
     catalyst VARCHAR(128) NULL,
     rationale TEXT NOT NULL,
@@ -163,6 +165,7 @@ CREATE TABLE portfolio_signal (
     llm_sentiment_modifier DECIMAL(5,4) NOT NULL DEFAULT 0.0000,
     final_signal DECIMAL(12,6) NOT NULL,
     ai_rationale TEXT NULL,
+    sentiment_breakdown JSON NULL,
     PRIMARY KEY (portfolio_id, instrument_id, signal_date),
     FOREIGN KEY (portfolio_id) REFERENCES portfolio(id) ON DELETE CASCADE,
     FOREIGN KEY (instrument_id) REFERENCES instrument(id) ON DELETE CASCADE
