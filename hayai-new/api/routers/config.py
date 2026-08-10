@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from app.config import get_news_llm_enabled, set_news_llm_enabled
 from app.db import execute_query, get_db_connection
 
 router = APIRouter()
@@ -9,6 +10,17 @@ class ResetRequest(BaseModel):
 
 class ConfigUpdateRequest(BaseModel):
     max_assets: int
+
+class NewsLlmUpdateRequest(BaseModel):
+    news_llm_enabled: bool
+
+@router.get("/config/news-llm")
+def get_news_llm_flag():
+    return {"news_llm_enabled": get_news_llm_enabled()}
+
+@router.put("/config/news-llm")
+def update_news_llm_flag(payload: NewsLlmUpdateRequest):
+    return {"news_llm_enabled": set_news_llm_enabled(payload.news_llm_enabled)}
 
 @router.get("/portfolios/{code}/config")
 def get_portfolio_config(code: str):

@@ -22,6 +22,15 @@ Ogni notte, il batch esegue l'ingestione delle notizie:
 
 ## 2. Analisi Semantica con DeepSeek API
 
+> **Flag `NEWS_LLM_ENABLED`**: il job `sentiment` può essere disattivato impostando
+> `NEWS_LLM_ENABLED=false` (nel `.env` o tramite la webapp, *Configurazione →
+> Analisi Notizie IA*). In quel caso il job termina subito con stato `disabled`,
+> **nessun token DeepSeek viene consumato**, ma il job `news` continua a scaricare
+> le notizie da yfinance. Le `news_sentiment` già calcolate restano valide e
+> continuano a contribuire al segnale con il loro decadimento naturale (vedi §3).
+> Quando si riattiva il flag, le notizie scaricate nel frattempo vengono analizzate
+> alla successiva esecuzione del job.
+
 Per ciascuna notizia fresca non ancora analizzata, il sistema invia una richiesta alle **API di DeepSeek** (modello `deepseek-chat` o equivalente raccomandato per task testuali e JSON mode).
 
 ### 2.1 Prompt Engineering Strutturato

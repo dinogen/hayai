@@ -66,4 +66,12 @@ export class ApiService {
   resetPortfolio(code: string, initialCapital: number): Observable<any> {
     return this.http.post(`${this.baseUrl}/portfolios/${code}/reset`, { initial_capital: initialCapital });
   }
+
+  getNewsLlmEnabled(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/config/news-llm`);
+  }
+
+  updateNewsLlmEnabled(enabled: boolean): Observable<any> {
+    return this.http.put(`${this.baseUrl}/config/news-llm`, { news_llm_enabled: enabled });
+  }
 }

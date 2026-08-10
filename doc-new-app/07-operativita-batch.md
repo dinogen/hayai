@@ -17,7 +17,7 @@ python -m app.cli <job_name> [--portfolio <code>]
 1. **`data`**: Scarica i prezzi giornalieri OHLCV, forex e indici da yfinance e fa l'upsert in `price_daily`, `fx_rate`, `index_value`.
 2. **`metadata`**: Scarica settore, country e area degli strumenti (`sector`/`category`, `country`) da yfinance e aggiorna `instrument`. Salta gli strumenti aggiornati da meno di 30 giorni, oppure forza il refresh con `--force`.
 3. **`news`**: Scarica le notizie recenti per tutti gli strumenti attivi e le salva in `news`.
-4. **`sentiment`**: Invia le nuove notizie alle API di **DeepSeek**, ricava sentiment, confidence e rationale, e popola `news_sentiment`.
+4. **`sentiment`**: Invia le nuove notizie alle API di **DeepSeek**, ricava sentiment, confidence e rationale, e popola `news_sentiment`. **Viene saltato se `NEWS_LLM_ENABLED=false`** (vedi §2): in tal caso termina con stato `disabled` senza consumare token.
 5. **`predict`**: Esegue l'inferenza ONNX (`model_prediction`) utilizzando i modelli attivi in `model_registry`.
 6. **`signal`**: Combina `model_prediction` e `news_sentiment` per calcolare il segnale ibrido in `portfolio_signal`.
 7. **`recommend`**: Calcola i pesi finali long/short e popola `portfolio_recommendation`.
@@ -51,6 +51,12 @@ DB_PASSWORD=tua_password_sicura
 # DeepSeek API
 DEEPSEEK_API_KEY=sk-...
 DEEPSEEK_API_BASE_URL=https://api.deepseek.com/v1
+
+# Analisi notizie IA (DeepSeek)
+# false = il job 'sentiment' salta l'analisi LLM (le notizie vengono comunque
+# scaricate dal job 'news'), utile durante le assenze per non consumare token.
+# Il flag è modificabile anche da webapp (Configurazione -> Analisi Notizie IA).
+NEWS_LLM_ENABLED=true
 
 # FastAPI / Uvicorn
 API_HOST=127.0.0.1

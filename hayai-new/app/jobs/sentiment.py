@@ -3,7 +3,7 @@ import re
 
 import requests
 
-from app.config import settings
+from app.config import get_news_llm_enabled, settings
 from app.db import execute_query, get_db_connection
 from app.logging_setup import setup_logger
 
@@ -30,6 +30,10 @@ def parse_impact_surface(raw: str) -> str | None:
 
 
 def run_sentiment_job(portfolio_code: str = "main") -> dict:
+    if not get_news_llm_enabled():
+        logger.info("NEWS_LLM_ENABLED=false: skipping DeepSeek sentiment analysis. News are still downloaded by the 'news' job.")
+        return {"analyzed": 0, "status": "disabled"}
+
     api_key = settings.DEEPSEEK_API_KEY
     if not api_key:
         logger.warning("DEEPSEEK_API_KEY is not configured. Skipping sentiment analysis.")
