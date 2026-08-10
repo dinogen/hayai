@@ -25,6 +25,61 @@ def _portfolio(code: str) -> dict:
     return rows[0]
 
 
+def _active_model_id(portfolio_id: int) -> int | None:
+    """Resolve the model used for signals: the portfolio's linked model or the
+    active fallback (same logic as app.jobs.signal)."""
+    rows = execute_query("SELECT model_id FROM portfolio WHERE id = %s", (portfolio_id,))
+    model_id = rows[0]['model_id'] if rows else None
+    if not model_id:
+        rows = execute_query("SELECT id FROM model_registry WHERE status = 'active' ORDER BY id LIMIT 1")
+        model_id = rows[0]['id'] if rows else None
+    return model_id
+
+
+def _watchlist_rows(portfolio_id: int) -> list:
+    """Watchlist instruments with latest close price, latest hybrid signal and
+    latest model volatility (vol_20). Instruments without a signal yield NULLs."""
+    model_id = _active_model_id(portfolio_id)
+    return execute_query("""
+        SELECT i.id AS instrument_id, i.symbol, i.name, i.instrument_type, i.area, i.sector,
+               pd.close AS current_price,
+               ps.quant_score, ps.llm_sentiment_modifier, ps.final_signal, ps.signal_date,
+               mp.vol_20
+        FROM portfolio_instrument pi
+        JOIN instrument i ON pi.instrument_id = i.id
+        LEFT JOIN (
+            SELECT instrument_id, MAX(trade_date) AS max_date
+            FROM price_daily WHERE close IS NOT NULL
+            GROUP BY instrument_id
+        ) mx ON mx.instrument_id = i.id
+        LEFT JOIN price_daily pd ON pd.instrument_id = mx.instrument_id AND pd.trade_date = mx.max_date
+        LEFT JOIN portfolio_signal ps ON ps.portfolio_id = pi.portfolio_id AND ps.instrument_id = pi.instrument_id
+            AND ps.signal_date = (SELECT MAX(signal_date) FROM portfolio_signal WHERE portfolio_id = pi.portfolio_id)
+        LEFT JOIN model_prediction mp ON mp.instrument_id = pi.instrument_id AND mp.model_id = %s
+            AND mp.as_of_date = (SELECT MAX(as_of_date) FROM model_prediction
+                                 WHERE model_id = %s AND instrument_id = pi.instrument_id)
+        WHERE pi.portfolio_id = %s AND i.active = 1
+        ORDER BY i.area, i.symbol
+    """, (model_id, model_id, portfolio_id))
+
+
+def _serialize_watchlist_row(r: dict) -> dict:
+    return {
+        "instrument_id": int(r['instrument_id']),
+        "symbol": r['symbol'],
+        "name": r['name'],
+        "instrument_type": r['instrument_type'],
+        "area": r['area'],
+        "sector": r['sector'],
+        "current_price": round(float(r['current_price']), 6) if r['current_price'] else None,
+        "signal_date": r['signal_date'].isoformat() if r['signal_date'] else None,
+        "quant_score": round(float(r['quant_score']), 6) if r['quant_score'] is not None else None,
+        "llm_sentiment_modifier": round(float(r['llm_sentiment_modifier']), 4) if r['llm_sentiment_modifier'] is not None else None,
+        "final_signal": round(float(r['final_signal']), 6) if r['final_signal'] is not None else None,
+        "vol_20": round(float(r['vol_20']), 4) if r['vol_20'] is not None else None,
+    }
+
+
 def _latest_close_map() -> dict:
     rows = execute_query("""
         SELECT pd.instrument_id, pd.close
@@ -99,29 +154,8 @@ def get_holdings(code: str):
     positions_value = round(sum(p['market_value'] for p in positions), 2)
     nav = round(cash + positions_value, 2)
 
-    watchlist_rows = execute_query("""
-        SELECT i.id AS instrument_id, i.symbol, i.name, i.instrument_type,
-               pd.close AS current_price
-        FROM portfolio_instrument pi
-        JOIN instrument i ON pi.instrument_id = i.id
-        LEFT JOIN (
-            SELECT instrument_id, MAX(trade_date) AS max_date
-            FROM price_daily WHERE close IS NOT NULL
-            GROUP BY instrument_id
-        ) mx ON mx.instrument_id = i.id
-        LEFT JOIN price_daily pd ON pd.instrument_id = mx.instrument_id AND pd.trade_date = mx.max_date
-        WHERE pi.portfolio_id = %s AND i.active = 1
-    """, (portfolio_id,))
-    watchlist = [
-        {
-            "instrument_id": int(r['instrument_id']),
-            "symbol": r['symbol'],
-            "name": r['name'],
-            "instrument_type": r['instrument_type'],
-            "current_price": round(float(r['current_price']), 6) if r['current_price'] else None,
-        }
-        for r in watchlist_rows
-    ]
+    watchlist_rows = _watchlist_rows(portfolio_id)
+    watchlist = [_serialize_watchlist_row(r) for r in watchlist_rows]
 
     recs = execute_query("""
         SELECT pr.instrument_id, pr.side, pr.target_qty, pr.rec_date, i.symbol
@@ -150,6 +184,13 @@ def get_holdings(code: str):
             ],
         },
     }
+
+
+@router.get("/portfolios/{code}/watchlist")
+def get_watchlist(code: str):
+    port = _portfolio(code)
+    rows = _watchlist_rows(port['id'])
+    return [_serialize_watchlist_row(r) for r in rows]
 
 
 @router.post("/portfolios/{code}/holdings/save")

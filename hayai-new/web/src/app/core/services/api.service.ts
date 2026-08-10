@@ -51,6 +51,10 @@ export class ApiService {
     return this.http.get(`${this.baseUrl}/portfolios/${code}/holdings`);
   }
 
+  getWatchlist(code: string): Observable<any> {
+    return this.http.get(`${this.baseUrl}/portfolios/${code}/watchlist`);
+  }
+
   saveHoldings(code: string, positions: any[]): Observable<any> {
     return this.http.post(`${this.baseUrl}/portfolios/${code}/holdings/save`, { positions });
   }

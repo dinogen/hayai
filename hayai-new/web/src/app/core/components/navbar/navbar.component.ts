@@ -19,6 +19,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
           <nav style="display: flex; gap: 2rem; align-items: center; font-family: 'Rajdhani'; font-size: 1.1rem; font-weight: 700;">
             <a routerLink="/" routerLinkActive="active-link" [routerLinkActiveOptions]="{exact: true}" style="color: #475569; text-decoration: none;">Dashboard</a>
             <a routerLink="/portfolio" routerLinkActive="active-link" style="color: #475569; text-decoration: none;">Portafoglio Attuale</a>
+            <a routerLink="/watchlist" routerLinkActive="active-link" style="color: #475569; text-decoration: none;">Watchlist</a>
             <a routerLink="/recommendations" routerLinkActive="active-link" style="color: #475569; text-decoration: none;">Composizione Consigliata</a>
             <a routerLink="/signals" routerLinkActive="active-link" style="color: #475569; text-decoration: none;">Segnali Ibridi</a>
             <a routerLink="/news" routerLinkActive="active-link" style="color: #475569; text-decoration: none;">Notizie & AI Summaries</a>
