@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
 import { RouterLink } from '@angular/router';
@@ -55,6 +55,28 @@ import { RouterLink } from '@angular/router';
         </div>
       </div>
 
+      <!-- Markets Open/Closed Box -->
+      <div class="hud-card">
+        <div style="padding: 1rem 1.5rem; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center;">
+          <h2 class="font-display" style="font-size: 1.15rem; font-weight: 700; color: #1e293b; margin: 0;">Mercati Aperti / Chiusi</h2>
+          <span style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #64748b;">Aggiornato ogni 60s</span>
+        </div>
+        <div style="padding: 1rem 1.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+          <div *ngFor="let m of markets()" style="display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem 1rem; border: 1px solid #e2e8f0; background: #f8fafc;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span [style.background]="m.is_open ? '#16a34a' : '#dc2626'" style="width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0;"></span>
+              <span style="font-weight: 700; color: #0f172a; font-family: 'Rajdhani';">{{ m.name }}</span>
+            </div>
+            <span style="font-family: 'JetBrains Mono'; font-size: 0.8rem; font-weight: 600; color: #0f172a;">
+              {{ m.is_open ? 'APERTO' : 'CHIUSO' }}
+            </span>
+            <span style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #64748b;">
+              Ora locale: {{ m.local_time }} · {{ m.open_time }}–{{ m.close_time }}
+            </span>
+          </div>
+        </div>
+      </div>
+
       <!-- Portfolio Instruments Table -->
       <div class="hud-card" style="padding: 0; overflow: hidden;">
         <div style="padding: 1rem 1.5rem; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center;">
@@ -89,11 +111,13 @@ import { RouterLink } from '@angular/router';
     </div>
   `
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   instruments = signal<any[]>([]);
   instrumentsCount = signal(0);
   lastJobName = signal('');
   lastJobStatus = signal('');
+  markets = signal<any[]>([]);
+  private pollTimer: any;
 
   constructor(private api: ApiService) {}
 
@@ -114,6 +138,22 @@ export class DashboardComponent implements OnInit {
           this.lastJobStatus.set(latest.status);
         }
       },
+      error: (err) => console.error(err)
+    });
+
+    this.loadMarkets();
+    this.pollTimer = setInterval(() => this.loadMarkets(), 60000);
+  }
+
+  ngOnDestroy() {
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+    }
+  }
+
+  private loadMarkets() {
+    this.api.getMarketsStatus().subscribe({
+      next: (res) => this.markets.set(res.markets || []),
       error: (err) => console.error(err)
     });
   }

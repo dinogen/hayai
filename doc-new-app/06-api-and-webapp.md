@@ -27,6 +27,7 @@ Gira su uvicorn (`127.0.0.1:8000`) ed è esposta al browser tramite `nginx`.
 | `/api/news/{news_id}` | GET | Dettaglio di una singola notizia (titolo, publisher, data, summary, link originale, `impact_score`, `impact_duration`, `impact_surface`, catalyst e rationale IA) |
 | `/api/portfolios/{code}/summaries/latest` | GET | **Riassunto Markdown giornaliero** generato da DeepSeek |
 | `/api/portfolios/{code}/config` | POST | **Aggiornamento configurazione**: body `{"max_assets": N}` (intero ≥ 1); aggiorna il cap massimo asset del portafoglio e restituisce i parametri correnti |
+| `/api/markets/status` | GET | **Stato mercati globali**: per USA (NYSE/Nasdaq), Europe (Xetra/Euronext) e Asia (Tokyo TSE) restituisce `code`, `name`, `timezone`, `local_time`, `is_open`, `open_time`, `close_time`, `next_open_at`, `next_close_at`. Giorni feriali (lun-ven), senza calendario festività; DST gestito automaticamente via `zoneinfo` |
 
 ### Metadati strumento (sector / country / area)
 
@@ -78,7 +79,7 @@ Ogni asset raccomandato è presentato sotto forma di **Scheda Tesi di Investimen
 ```
 
 ### 2.2 Altre Viste della SPA
-1. **Dashboard (`/`)**: Panoramica di tutti i portafogli, stato dei job notturni (successo/fallimento) e data dell'ultimo aggiornamento dati.
+1. **Dashboard (`/`)**: Panoramica di tutti i portafogli, stato dei job notturni (successo/fallimento), data dell'ultimo aggiornamento dati e box **"Mercati Aperti / Chiusi"** (USA, Europe, Asia) con pallino verde/rosso, ora locale e orari di borsa; lo stato è ricalcolato dal backend (`GET /api/markets/status`) e il frontend lo aggiorna ogni 60s.
 2. **Portafoglio Attuale (`/portfolio`)**: Vista e **modifica manuale** delle posizioni effettivamente detenute (long/short). Tabella editor con `qty` e `avg_price` modificabili, toggle side, chiusura posizione e apertura di nuove posizioni dalla watchlist. Pulsante **"Applica Raccomandazioni del Modello"** (popola l'editor con la composizione target alla lettera) e pulsante **"SALVA"** che persiste via `POST /holdings/save`. Short rappresentato con `qty` negativa; P&L posizione = `qty × (close − avg_price)`.
 3. **Tabella Segnali (`/portfolios/:code/signals`)**: Elenco completo di tutti gli strumenti del portafoglio con il dettaglio di come il punteggio matematico è stato corretto dal sentiment dell'IA. Ogni riga è espandibile e mostra il **dettaglio per-notizia** (`impact_score`, durata, confidenza, età, decay, contributo) che ha generato il modificatore.
 4. **Notizie & Riassunti (`/portfolios/:code/news`)**: Visualizzatore Markdown formattato dei riassunti giornalieri creati da DeepSeek, con link diretti alle fonti originali di yfinance.

@@ -74,4 +74,8 @@ export class ApiService {
   updateNewsLlmEnabled(enabled: boolean): Observable<any> {
     return this.http.put(`${this.baseUrl}/config/news-llm`, { news_llm_enabled: enabled });
   }
+
+  getMarketsStatus(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/markets/status`);
+  }
 }
