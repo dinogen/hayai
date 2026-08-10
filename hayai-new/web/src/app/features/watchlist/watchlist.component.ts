@@ -1,11 +1,12 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 
 @Component({
   selector: 'app-watchlist',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   template: `
     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
       <div class="hud-card">
@@ -30,7 +31,7 @@ import { ApiService } from '../../core/services/api.service';
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let w of watchlist()">
+              <tr *ngFor="let w of watchlist()" [routerLink]="['/watchlist', w.symbol]" style="cursor: pointer;" class="wl-row">
                 <td>
                   <span style="font-weight: bold; color: #4d7c0f;">{{ w.symbol }}</span>
                   <span style="display: block; font-size: 0.7rem; color: #94a3b8;">{{ w.name || w.instrument_type }}</span>
@@ -78,6 +79,12 @@ import { ApiService } from '../../core/services/api.service';
     </div>
     <ng-template #nd><span style="color: #94a3b8;">N/D</span></ng-template>
   `,
+  styles: [`
+    .wl-row:hover {
+      background: #f8fafc;
+      box-shadow: inset 3px 0 0 #65a30d;
+    }
+  `],
 })
 export class WatchlistComponent implements OnInit {
   watchlist = signal<any[]>([]);

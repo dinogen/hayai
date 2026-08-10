@@ -12,6 +12,10 @@ export const routes: Routes = [
   { path: '', component: DashboardComponent },
   { path: 'portfolio', component: HoldingsComponent },
   { path: 'watchlist', component: WatchlistComponent },
+  {
+    path: 'watchlist/:symbol',
+    loadComponent: () => import('./features/instrument/instrument-detail.component').then((m) => m.InstrumentDetailComponent),
+  },
   { path: 'recommendations', component: RecommendationsComponent },
   { path: 'signals', component: SignalsComponent },
   { path: 'news', component: NewsComponent },

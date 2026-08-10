@@ -55,6 +55,11 @@ export class ApiService {
     return this.http.get(`${this.baseUrl}/portfolios/${code}/watchlist`);
   }
 
+  getInstrumentDetail(symbol: string, days?: number): Observable<any> {
+    const qs = days ? `?days=${days}` : '';
+    return this.http.get(`${this.baseUrl}/instruments/${encodeURIComponent(symbol)}${qs}`);
+  }
+
   saveHoldings(code: string, positions: any[]): Observable<any> {
     return this.http.post(`${this.baseUrl}/portfolios/${code}/holdings/save`, { positions });
   }
