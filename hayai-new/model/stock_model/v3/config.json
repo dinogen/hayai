@@ -23,13 +23,13 @@
     "mkt_ret_5",
     "mkt_ret_20",
     "breadth_20",
-    "dispersion_20",
-    "dow_sin",
-    "dow_cos",
-    "days_since_high"
+    "dispersion_20"
   ],
   "label_min": -3.0,
   "label_max": 3.0,
   "clip_min": -3.0,
-  "clip_max": 3.0
+  "clip_max": 3.0,
+  "split": "time",
+  "train_end": "2025-02-27",
+  "val_end": "2025-11-12"
 }

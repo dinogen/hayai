@@ -76,43 +76,10 @@ import { RouterLink } from '@angular/router';
           </div>
         </div>
       </div>
-
-      <!-- Portfolio Instruments Table -->
-      <div class="hud-card" style="padding: 0; overflow: hidden;">
-        <div style="padding: 1rem 1.5rem; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center;">
-          <h2 class="font-display" style="font-size: 1.15rem; font-weight: 700; color: #1e293b; margin: 0;">Watchlist Strumenti Monitorati</h2>
-          <span style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #64748b;">Aggiornato via yfinance</span>
-        </div>
-        <div style="overflow-x: auto;">
-          <table class="hud-table">
-            <thead>
-              <tr>
-                <th>Simbolo</th>
-                <th>Nome</th>
-                <th>Classe Asset</th>
-                <th>Valuta</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let ins of instruments()">
-                <td style="font-weight: bold; color: #4d7c0f;">{{ ins.symbol }}</td>
-                <td>{{ ins.name || '—' }}</td>
-                <td>
-                  <span style="padding: 0.15rem 0.5rem; font-size: 0.75rem; background: #f1f5f9; border: 1px solid #cbd5e1; text-transform: uppercase;">
-                    {{ ins.instrument_type }}
-                  </span>
-                </td>
-                <td style="color: #64748b;">{{ ins.currency }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
   `
 })
 export class DashboardComponent implements OnInit, OnDestroy {
-  instruments = signal<any[]>([]);
   instrumentsCount = signal(0);
   lastJobName = signal('');
   lastJobStatus = signal('');
@@ -124,8 +91,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.api.getPortfolioDetail('main').subscribe({
       next: (res) => {
-        this.instruments.set(res.instruments || []);
-        this.instrumentsCount.set(this.instruments().length);
+        this.instrumentsCount.set((res.instruments || []).length);
       },
       error: (err) => console.error(err)
     });

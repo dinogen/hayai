@@ -30,9 +30,14 @@ UNIVERSE_SYMBOLS = [
     # Consumer, Industrial & Energy
     "WMT", "PG", "KO", "PEP", "MCD", "DIS", "BA", "CAT", "HON", "UPS", 
     "XOM", "CVX", "COP", "SLB", "EOG", "OXY", "NEE", "DUK", "SO", "GE",
+    # Mid-Cap Stocks (higher-risk additions)
+    "ESTC", "GTLB", "DBX", "SMCI", "ON", "CROX", "WING", "FIVE", "MRNA", "NVAX",
+    "GNRC", "MTZ", "MTDR", "SOFI", "AFRM",
     # ETFs (Broad, Sector, Bonds, Commodities)
     "SPY", "QQQ", "IWM", "DIA", "XLF", "XLE", "XLV", "XLI", "XLY", "XLP", 
     "XLK", "U", "XLRE", "TLT", "IEF", "GLD", "SLV", "USO", "VNQ", "ARKK",
+    # EM High-Yield Sovereign Bond ETFs
+    "EMB", "VWOB", "PCY", "EMLC",
     # International & Indices / Rates
     "EEM", "EFA", "EWJ", "FXI", "ASHR", "VGK", "EWZ", "INDA", "VWO", "IAU"
 ]
