@@ -66,14 +66,19 @@ def run_data_job(portfolio_code: str = "main") -> dict:
 
                 date_col = 'Date' if 'Date' in df.columns else df.columns[0]
 
+                def _to_float_or_none(v):
+                    if v is None or pd.isna(v):
+                        return None
+                    return float(v)
+
                 rows_to_insert = []
                 for _, row in df.iterrows():
                     trade_date = pd.to_datetime(row[date_col]).strftime('%Y-%m-%d')
-                    open_p = float(row.get('Open', 0)) or None
-                    high_p = float(row.get('High', 0)) or None
-                    low_p = float(row.get('Low', 0)) or None
-                    close_p = float(row.get('Close', 0)) or None
-                    adj_close = float(row.get('Close', 0)) or None
+                    open_p = _to_float_or_none(row.get('Open'))
+                    high_p = _to_float_or_none(row.get('High'))
+                    low_p = _to_float_or_none(row.get('Low'))
+                    close_p = _to_float_or_none(row.get('Close'))
+                    adj_close = _to_float_or_none(row.get('Close'))
                     vol = int(row.get('Volume', 0)) if not pd.isna(row.get('Volume', 0)) else 0
 
                     if close_p is None:

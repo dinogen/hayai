@@ -50,6 +50,7 @@ Consulta SEMPRE questi documenti prima di scrivere o modificare qualsiasi codice
 | `07-operativita-batch.md` | CLI batch, pianificazione cron notturna, deploy nativo Raspberry Pi |
 | `08-portfolio-lifecycle.md` | Giorno 1 (bootstrap), Mark-to-Market giornaliero, gestione universo |
 | `09-ui-ux-design-system.md` | Design System "Cyber Light HUD" (temi, font futuristiche, card tesi) |
+| `10-simulated-portfolio-value.md` | Tracciamento NAV, Mark-to-Market giornaliero e config portafoglio |
 
 ## 5. Regole Operative per gli Agenti
 

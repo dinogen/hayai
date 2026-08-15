@@ -93,7 +93,7 @@ import { ApiService } from '../../core/services/api.service';
             <!-- DeepSeek Investment Thesis Rationale -->
             <div style="margin-top: 1rem; border-left: 4px solid #65a30d; padding-left: 1rem; padding-top: 0.25rem; padding-bottom: 0.25rem;">
               <div style="font-family: 'JetBrains Mono'; font-size: 0.7rem; font-weight: bold; color: #365314; text-transform: uppercase; letter-spacing: 0.05em;">Tesi di Investimento (DeepSeek AI)</div>
-              <p style="color: #334155; font-size: 0.9rem; margin-top: 0.25rem; font-style: italic;">
+              <p style="color: #334155; font-size: 0.9rem; margin-top: 0.25rem; font-style: italic; max-height: 5rem; overflow-y: auto; padding-right: 0.5rem; scrollbar-width: thin;">
                 "{{ item.ai_rationale || 'Nessuna tesi di investimento generata per questa sessione.' }}"
               </p>
             </div>
