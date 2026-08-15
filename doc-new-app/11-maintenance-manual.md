@@ -194,7 +194,8 @@ di mercato e l'header mostra NAV e P&L (vs mese scorso e vs €5.000 iniziali).
 | Sintomo | Cosa controllare |
 |---|---|
 | Nessun dato nuovo | `job_run` per lo stato dei job; log in `logs/cron.log` e `logs/hayai.log` |
-| Job `data` fallito | Connessione internet/`yfinance` (rate limit); i dati mancanti vengono recuperati al run successivo (upsert) |
+| Job `data` fallito | Connessione internet/`yfinance` (rate limit); i dati mancanti vengono recuperati al run successivo (upsert). Il client yfinance condiviso (`app/yf_client.py`) ritenta automaticamente con backoff esponenziale su HTTP 429/5xx e su risposte vuote; se il blocco persiste oltre i retry, il job logga l'errore e il ciclo continua |
+| Job `metadata` con `429 Too Many Requests` | Rate limit Yahoo su `quoteSummary`; il client condiviso ritenta con backoff. Se fallisce ancora, i metadati restano quelli esistenti (`metadata_date` invariato) e vengono ritentati al prossimo run |
 | Nessuna raccomandazione | Verificare che `predict`/`signal` siano andati a buon fine; `model_registry` abbia un modello `active` |
 | Sentiment assente | `NEWS_LLM_ENABLED` (`.env` o Configurazione) e credenziali DeepSeek |
 | NAV fermo | Il job `nav` gira solo se il portafoglio ha posizioni; cash/posizioni si muovono solo con operazioni manuali in webapp |

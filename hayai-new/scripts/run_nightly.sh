@@ -12,11 +12,17 @@
 
 set -u
 
-# Resolve project root as the parent of this script's directory.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# Fixed paths for the Raspberry Pi deploy.
+SCRIPT_DIR="/opt/hayai/hayai-new/scripts"
+ROOT_DIR="/opt/hayai/hayai-new"
 
-PYTHON="${ROOT_DIR}/venv/bin/python"
+# Fixed virtualenv location for the Raspberry Pi deploy.
+PYTHON="/opt/hayai/venv/bin/python"
+if [ ! -x "${PYTHON}" ]; then
+  echo "venv not found at ${PYTHON}" >&2
+  exit 2
+fi
+
 LOG_FILE="${ROOT_DIR}/logs/nightly.log"
 PORTFOLIO="main"
 SKIP_CLEANUP=0

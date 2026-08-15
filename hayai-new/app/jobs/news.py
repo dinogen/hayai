@@ -1,10 +1,9 @@
-import requests
-import yfinance as yf
 import pandas as pd
 from datetime import datetime, timezone
 from app.db import execute_query, get_db_connection
 from app.jobs.cache import load_cached, save_cached
 from app.logging_setup import setup_logger
+from app.yf_client import YahooFinanceClient
 
 logger = setup_logger("app.jobs.news")
 
@@ -55,8 +54,7 @@ def run_news_job(portfolio_code: str = "main") -> dict:
         logger.warning(f"No active instruments found for portfolio '{portfolio_code}'.")
         return {"news_inserted": 0}
 
-    session = requests.Session()
-    session.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    client = YahooFinanceClient()
 
     upsert_query = """
         INSERT INTO news (source_id, instrument_id, title, publisher, link, published_at, summary)
@@ -81,8 +79,7 @@ def run_news_job(portfolio_code: str = "main") -> dict:
                     news_list = news_df.to_dict('records')
                 else:
                     try:
-                        ticker = yf.Ticker(symbol, session=session)
-                        news_list = ticker.news
+                        news_list = client.fetch_news(symbol)
                         if not news_list:
                             continue
                         save_cached(f"{symbol}_news", pd.DataFrame(news_list))

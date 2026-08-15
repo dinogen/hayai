@@ -1,10 +1,8 @@
-import time
-import requests
-import yfinance as yf
 from datetime import date, timedelta
 from app.area import fallback_area_for_symbol, map_area
 from app.db import execute_query, get_db_connection
 from app.logging_setup import setup_logger
+from app.yf_client import YahooFinanceClient
 
 logger = setup_logger("app.jobs.metadata")
 
@@ -25,8 +23,7 @@ def run_metadata_job(portfolio_code: str = "main", force: bool = False) -> dict:
         logger.warning(f"No active instruments found for portfolio '{portfolio_code}'.")
         return {"total": 0, "fetched": 0, "updated": 0, "failed": 0, "skipped_fresh": 0}
 
-    session = requests.Session()
-    session.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    client = YahooFinanceClient()
 
     today = date.today()
     cutoff = today - timedelta(days=METADATA_TTL_DAYS)
@@ -44,7 +41,7 @@ def run_metadata_job(portfolio_code: str = "main", force: bool = False) -> dict:
 
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
-            for idx, ins in enumerate(instruments):
+            for ins in instruments:
                 inst_id = ins['id']
                 symbol = ins['symbol']
 
@@ -55,10 +52,7 @@ def run_metadata_job(portfolio_code: str = "main", force: bool = False) -> dict:
                     continue
 
                 try:
-                    if idx > 0:
-                        time.sleep(2.0)
-                    ticker = yf.Ticker(symbol, session=session)
-                    info = ticker.info
+                    info = client.fetch_info(symbol)
                     if not info:
                         logger.warning(f"Empty info returned for {symbol}.")
                         failed += 1
