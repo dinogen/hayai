@@ -17,6 +17,7 @@ set -u
 SCRIPT_DIR="/opt/hayai/hayai-new/scripts"
 ROOT_DIR="/opt/hayai/hayai-new"
 
+
 # Fixed virtualenv location for the Raspberry Pi deploy.
 PYTHON="/opt/hayai/venv/bin/python"
 if [ ! -x "${PYTHON}" ]; then
@@ -24,9 +25,17 @@ if [ ! -x "${PYTHON}" ]; then
   exit 2
 fi
 
+
 LOG_FILE="${ROOT_DIR}/logs/nightly.log"
 PORTFOLIO="main"
 SKIP_CLEANUP=0
+
+PYTHON="/opt/hayai/venv/bin/python"
+if [ ! -x "${PYTHON}" ]; then
+  echo "venv not found at ${PYTHON}" >&2
+  exit 2
+fi
+
 
 for arg in "$@"; do
   case "$arg" in
