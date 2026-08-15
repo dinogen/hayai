@@ -12,6 +12,7 @@
 
 set -u
 
+
 # Fixed paths for the Raspberry Pi deploy.
 SCRIPT_DIR="/opt/hayai/hayai-new/scripts"
 ROOT_DIR="/opt/hayai/hayai-new"
