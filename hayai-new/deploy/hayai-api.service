@@ -5,7 +5,7 @@ After=mariadb.service network-online.target
 
 [Service]
 Type=simple
-User=hayai
+User=dinogen
 WorkingDirectory=/opt/hayai/hayai-new
 EnvironmentFile=/opt/hayai/hayai-new/.env
 ExecStart=/opt/hayai/venv/bin/uvicorn api.main:app --host 127.0.0.1 --port 8000

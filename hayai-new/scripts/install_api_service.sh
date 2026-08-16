@@ -8,6 +8,8 @@
 #
 # Requirements:
 #   - App deployed at /opt/hayai/hayai-new with venv at /opt/hayai/venv
+#   - The systemd user (dinogen in hayai-api.service) owns /opt/hayai and can
+#     write to logs/
 #   - MariaDB running (see doc-new-app/07-operativita-batch.md)
 #   - .env file present in the app root
 

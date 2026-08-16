@@ -67,7 +67,7 @@ API_PORT=8000
 
 ## 3. Pianificazione Cron (Notturna)
 
-Crontab dell'utente `hayai` sul Raspberry Pi per l'esecuzione automatica notturna:
+Crontab dell'utente di sistema (`dinogen`) sul Raspberry Pi per l'esecuzione automatica notturna:
 
 ```cron
 # Esecuzione sequenziale notturna (Lun-Ven alle 02:15)
@@ -121,7 +121,7 @@ After=mariadb.service network-online.target
 
 [Service]
 Type=simple
-User=hayai
+User=dinogen
 WorkingDirectory=/opt/hayai/hayai-new
 EnvironmentFile=/opt/hayai/hayai-new/.env
 ExecStart=/opt/hayai/venv/bin/uvicorn api.main:app --host 127.0.0.1 --port 8000
