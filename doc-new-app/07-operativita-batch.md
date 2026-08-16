@@ -71,19 +71,19 @@ Crontab dell'utente `hayai` sul Raspberry Pi per l'esecuzione automatica notturn
 
 ```cron
 # Esecuzione sequenziale notturna (Lun-Ven alle 02:15)
-15 2 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli data >> logs/cron.log 2>&1
-30 2 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli metadata >> logs/cron.log 2>&1
-45 2 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli news >> logs/cron.log 2>&1
-00 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli sentiment >> logs/cron.log 2>&1
-15 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli predict >> logs/cron.log 2>&1
-30 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli signal >> logs/cron.log 2>&1
-45 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli recommend >> logs/cron.log 2>&1
-50 3 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli nav >> logs/cron.log 2>&1
-00 4 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli summaries >> logs/cron.log 2>&1
-30 4 * * 1-5   cd /opt/hayai-new && venv/bin/python -m app.cli cleanup --days 14 >> logs/cron.log 2>&1
+15 2 * * 1-5   cd /opt/hayai/hayai-new && /opt/hayai/venv/bin/python -m app.cli data >> logs/cron.log 2>&1
+30 2 * * 1-5   cd /opt/hayai/hayai-new && /opt/hayai/venv/bin/python -m app.cli metadata >> logs/cron.log 2>&1
+45 2 * * 1-5   cd /opt/hayai/hayai-new && /opt/hayai/venv/bin/python -m app.cli news >> logs/cron.log 2>&1
+00 3 * * 1-5   cd /opt/hayai/hayai-new && /opt/hayai/venv/bin/python -m app.cli sentiment >> logs/cron.log 2>&1
+15 3 * * 1-5   cd /opt/hayai/hayai-new && /opt/hayai/venv/bin/python -m app.cli predict >> logs/cron.log 2>&1
+30 3 * * 1-5   cd /opt/hayai/hayai-new && /opt/hayai/venv/bin/python -m app.cli signal >> logs/cron.log 2>&1
+45 3 * * 1-5   cd /opt/hayai/hayai-new && /opt/hayai/venv/bin/python -m app.cli recommend >> logs/cron.log 2>&1
+50 3 * * 1-5   cd /opt/hayai/hayai-new && /opt/hayai/venv/bin/python -m app.cli nav >> logs/cron.log 2>&1
+00 4 * * 1-5   cd /opt/hayai/hayai-new && /opt/hayai/venv/bin/python -m app.cli summaries >> logs/cron.log 2>&1
+30 4 * * 1-5   cd /opt/hayai/hayai-new && /opt/hayai/venv/bin/python -m app.cli cleanup --days 14 >> logs/cron.log 2>&1
 
 # Backup giornaliero del database alle 04:15
-0  4 * * *     cd /opt/hayai-new && scripts/backup.sh >> logs/backup.log 2>&1
+0  4 * * *     cd /opt/hayai/hayai-new && scripts/backup.sh >> logs/backup.log 2>&1
 ```
 
 ---
@@ -102,33 +102,48 @@ sudo mariadb -e "GRANT ALL PRIVILEGES ON hayai.* TO 'hayai'@'localhost'; FLUSH P
 
 ### 2. Setup Ambiente Python
 ```bash
-sudo mkdir -p /opt/hayai-new && sudo chown $USER /opt/hayai-new
-python3 -m venv /opt/hayai-new/venv
-/opt/hayai-new/venv/bin/pip install --upgrade pip
-/opt/hayai-new/venv/bin/pip install -r requirements.txt
+sudo mkdir -p /opt/hayai/hayai-new && sudo chown $USER /opt/hayai
+python3 -m venv /opt/hayai/venv
+/opt/hayai/venv/bin/pip install --upgrade pip
+/opt/hayai/venv/bin/pip install -r requirements.txt
 ```
 
 ### 3. Configurazione Servizio Systemd (FastAPI)
-Crea `/etc/systemd/system/hayai-api.service`:
+Il file di unit è versionato nel repo in `deploy/hayai-api.service` e si installa con
+`scripts/install_api_service.sh` (abbrevia i comandi seguenti). In alternativa, crea
+`/etc/systemd/system/hayai-api.service` manualmente:
+
 ```ini
 [Unit]
 Description=HAYAI v2 FastAPI Service
+Wants=network-online.target
 After=mariadb.service network-online.target
 
 [Service]
+Type=simple
 User=hayai
-WorkingDirectory=/opt/hayai-new
-EnvironmentFile=/opt/hayai-new/.env
-ExecStart=/opt/hayai-new/venv/bin/uvicorn api.main:app --host 127.0.0.1 --port 8000
+WorkingDirectory=/opt/hayai/hayai-new
+EnvironmentFile=/opt/hayai/hayai-new/.env
+ExecStart=/opt/hayai/venv/bin/uvicorn api.main:app --host 127.0.0.1 --port 8000
 Restart=on-failure
+RestartSec=5
+StandardOutput=append:/opt/hayai/hayai-new/logs/api.log
+StandardError=append:/opt/hayai/hayai-new/logs/api.log
 
 [Install]
 WantedBy=multi-user.target
 ```
-Abilita e avvia:
+Abilita e avvia (o usa lo script):
 ```bash
+sudo scripts/install_api_service.sh
+# oppure manualmente:
 sudo systemctl daemon-reload
 sudo systemctl enable --now hayai-api
+```
+Verifica che parta al boot:
+```bash
+systemctl is-enabled hayai-api     # atteso: enabled
+curl http://127.0.0.1:8000/api/health
 ```
 
 ### 4. Configurazione Nginx (Frontend + Reverse Proxy API)

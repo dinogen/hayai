@@ -1,0 +1,18 @@
+[Unit]
+Description=HAYAI v2 FastAPI Service
+Wants=network-online.target
+After=mariadb.service network-online.target
+
+[Service]
+Type=simple
+User=hayai
+WorkingDirectory=/opt/hayai/hayai-new
+EnvironmentFile=/opt/hayai/hayai-new/.env
+ExecStart=/opt/hayai/venv/bin/uvicorn api.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/opt/hayai/hayai-new/logs/api.log
+StandardError=append:/opt/hayai/hayai-new/logs/api.log
+
+[Install]
+WantedBy=multi-user.target
