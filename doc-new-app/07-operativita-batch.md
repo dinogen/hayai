@@ -147,7 +147,10 @@ curl http://127.0.0.1:8000/api/health
 ```
 
 ### 4. Configurazione Nginx (Frontend + Reverse Proxy API)
-Crea `/etc/nginx/sites-available/hayai`:
+Il sito è versionato nel repo in `deploy/nginx-hayai.conf` e si deploya con
+`scripts/deploy_web.sh` (copia la build Angular in `/var/www/hayai`, installa e
+attiva il sito, rimuove il default, `nginx -t` e reload). Config manuale
+equivalente — crea `/etc/nginx/sites-available/hayai`:
 ```nginx
 server {
     listen 80;
@@ -158,16 +161,27 @@ server {
     location /api/ {
         proxy_pass http://127.0.0.1:8000/api/;
         proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
     location / {
         try_files $uri $uri/ /index.html;
     }
 }
 ```
-Attiva il sito:
+Deploy in un comando (dalla root `/opt/hayai/hayai-new`):
 ```bash
+sudo scripts/deploy_web.sh
+```
+Oppure manualmente:
+```bash
+sudo cp -r web/dist/web/browser/. /var/www/hayai/
 sudo ln -s /etc/nginx/sites-available/hayai /etc/nginx/sites-enabled/
-sudo rm /etc/nginx/sites-enabled/default
+sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 ```
-*(Copia i file della build di Angular in `/var/www/hayai`)*.
+
+> **Nota sulla build**: in produzione il frontend chiama l'API in **relativo** (`/api`),
+> quindi funziona da qualsiasi browser. In sviluppo (senza nginx) resta
+> `http://127.0.0.1:8000/api` tramite gli environment Angular
+> (`src/environments/environment.ts` ↔ `environment.prod.ts`).
