@@ -17,18 +17,18 @@ import { ApiService } from '../../core/services/api.service';
             <p style="font-family: 'Rajdhani'; font-size: 1.15rem; color: #64748b; margin: 0;">Data Segnale: <strong style="font-family: 'JetBrains Mono'; color: #0f172a;">{{ recDate() || 'N/D' }}</strong> | Capitale Riferimento: <strong style="font-family: 'JetBrains Mono'; color: #0f172a;">€5,000.00</strong></p>
           </div>
           <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: stretch;">
-            <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155;">
-              <div>EQUITY INVESTIBILE (90%): <strong style="color: #0f172a;">€{{ (equityIndicativa() * riskPct()) | number:'1.2-2' }}</strong></div>
-              <div style="margin-top: 0.25rem;">MODELLO ATTIVO: <strong style="color: #4d7c0f;">Keras Quant + DeepSeek LLM</strong></div>
-            </div>
             <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
               <div style="color: #94a3b8;">VALORE PORTAFOGLIO OGGI</div>
               <strong style="color: #0f172a; font-size: 1.05rem;">{{ navValue() !== null ? ('€' + (navValue() | number:'1.2-2')) : 'N/D' }}</strong>
             </div>
             <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
-              <div style="color: #94a3b8;">P&L vs MESE SCORSO</div>
-              <strong [style.color]="pnl30() !== null && pnl30() >= 0 ? '#16a34a' : '#dc2626'" style="font-size: 1.05rem;">
-                {{ pnl30() !== null ? formatPnl(pnl30(), pnl30Pct()) : 'N/D' }}
+              <div style="color: #94a3b8;">TARGET RACCOMANDATO</div>
+              <strong style="color: #4d7c0f; font-size: 1.05rem;">€{{ totalRecommended() | number:'1.2-2' }}</strong>
+            </div>
+            <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
+              <div style="color: #94a3b8;">SCOSTAMENTO (NAV-TARGET)</div>
+              <strong [style.color]="(navDelta() ?? 0) >= 0 ? '#16a34a' : '#dc2626'" style="font-size: 1.05rem;">
+                {{ formatDelta(navDelta()) }}
               </strong>
             </div>
             <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
@@ -123,11 +123,24 @@ export class RecommendationsComponent implements OnInit {
   pnlInit = computed(() => this.value()?.pnl_vs_initial ?? null);
   pnlInitPct = computed(() => this.value()?.pnl_vs_initial_pct ?? null);
 
+  totalRecommended = computed(() => this.items().reduce((acc, item) => acc + (Number(item.target_amount) || 0), 0));
+  navDelta = computed(() => {
+    const nav = this.navValue();
+    const target = this.totalRecommended();
+    return nav !== null && target > 0 ? nav - target : null;
+  });
+
   constructor(private api: ApiService) {}
 
   formatPnl(amount: number, pct: number): string {
     const sign = amount >= 0 ? '+' : '-';
     return `${sign}€${Math.abs(amount).toFixed(2)} (${sign}${Math.abs(pct).toFixed(2)}%)`;
+  }
+
+  formatDelta(val: number | null): string {
+    if (val === null) return 'N/D';
+    const sign = val >= 0 ? '+€' : '-€';
+    return `${sign}${Math.abs(val).toFixed(2)}`;
   }
 
   ngOnInit() {

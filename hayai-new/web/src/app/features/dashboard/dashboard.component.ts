@@ -8,12 +8,12 @@ import { RouterLink } from '@angular/router';
   standalone: true,
   imports: [CommonModule, RouterLink],
   template: `
-    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    <section class="dashboard-container">
       <!-- Top HUD Banner -->
-      <div class="hud-card">
+      <article class="hud-card">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
           <div>
-            <span style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #365314; background: #f7fee7; padding: 0.25rem 0.5rem; border: 1px solid #bef264; text-transform: uppercase; letter-spacing: 0.05em;">Personal Quant Experiment</span>
+            <span class="badge-mono">Personal Quant Experiment</span>
             <h1 class="font-display" style="font-size: 2rem; font-weight: 800; color: #0f172a; margin-top: 0.5rem; margin-bottom: 0.25rem;">PORTAFOGLIO PRINCIPALE</h1>
             <p style="font-family: 'Rajdhani'; font-size: 1.15rem; color: #64748b; margin: 0;">Capitale Iniziale: <strong style="font-family: 'JetBrains Mono'; color: #0f172a;">€5,000.00</strong> (90% Target Investito)</p>
           </div>
@@ -23,28 +23,28 @@ import { RouterLink } from '@angular/router';
             </a>
           </div>
         </div>
-      </div>
+      </article>
 
       <!-- System Health & Recent Jobs Grid -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
-        <div class="hud-card">
+      <div class="metrics-grid">
+        <article class="hud-card" style="margin-bottom: 0;">
           <div style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;">Stato Database</div>
           <div class="font-display" style="font-size: 1.5rem; font-weight: 700; color: #0f172a; margin-top: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
             <span style="width: 10px; height: 10px; background: #16a34a; border-radius: 50%; display: inline-block;"></span>
             <span>MariaDB Connesso</span>
           </div>
           <p style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #64748b; margin-top: 0.5rem;">Tabella price_daily & model_prediction attive</p>
-        </div>
+        </article>
 
-        <div class="hud-card">
+        <article class="hud-card" style="margin-bottom: 0;">
           <div style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;">Strumenti Monitorati</div>
           <div class="font-display" style="font-size: 1.75rem; font-weight: 700; color: #0f172a; margin-top: 0.5rem;">
             {{ instrumentsCount() }} Asset
           </div>
           <p style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #64748b; margin-top: 0.5rem;">Azioni, ETF e Bond Yields</p>
-        </div>
+        </article>
 
-        <div class="hud-card">
+        <article class="hud-card" style="margin-bottom: 0;">
           <div style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;">Ultimo Job Notturno</div>
           <div class="font-display" style="font-size: 1.25rem; font-weight: 700; color: #0f172a; margin-top: 0.5rem;">
             {{ lastJobName() || 'Nessun job eseguito' }}
@@ -52,16 +52,16 @@ import { RouterLink } from '@angular/router';
           <p style="font-family: 'JetBrains Mono'; font-size: 0.75rem; font-weight: 600; color: #16a34a; margin-top: 0.5rem;" *ngIf="lastJobStatus()">
             STATO: {{ lastJobStatus() | uppercase }}
           </p>
-        </div>
+        </article>
       </div>
 
       <!-- Markets Open/Closed Box -->
-      <div class="hud-card">
-        <div style="padding: 1rem 1.5rem; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center;">
+      <article class="hud-card">
+        <header style="padding: 1rem 1.5rem; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center; margin: -1.5rem -1.5rem 1.5rem -1.5rem; border-top-left-radius: 4px; border-top-right-radius: 4px;">
           <h2 class="font-display" style="font-size: 1.15rem; font-weight: 700; color: #1e293b; margin: 0;">Mercati Aperti / Chiusi</h2>
           <span style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #64748b;">Aggiornato ogni 60s</span>
-        </div>
-        <div style="padding: 1rem 1.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+        </header>
+        <div class="markets-grid">
           <div *ngFor="let m of markets()" style="display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem 1rem; border: 1px solid #e2e8f0; background: #f8fafc;">
             <div style="display: flex; align-items: center; gap: 0.5rem;">
               <span [style.background]="m.is_open ? '#16a34a' : '#dc2626'" style="width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0;"></span>
@@ -75,8 +75,8 @@ import { RouterLink } from '@angular/router';
             </span>
           </div>
         </div>
-      </div>
-    </div>
+      </article>
+    </section>
   `
 })
 export class DashboardComponent implements OnInit, OnDestroy {
