@@ -24,13 +24,10 @@ app.add_middleware(
 )
 
 # Credentialed requests (cookies) require explicit origins, not "*".
-DEV_ORIGINS = [
-    "http://localhost:4200",
-    "http://127.0.0.1:4200",
-]
+cors_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=DEV_ORIGINS,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

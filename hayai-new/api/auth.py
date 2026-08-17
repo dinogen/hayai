@@ -18,6 +18,9 @@ if not (settings.AUTH_USERNAME and settings.AUTH_PASSWORD and settings.AUTH_SESS
         "to enable the cookie-based session authentication."
     )
 
+if len(settings.AUTH_SESSION_SECRET) < 32:
+    raise RuntimeError("AUTH_SESSION_SECRET must be at least 32 characters long for secure cookie signing.")
+
 
 def is_authenticated(request: Request) -> bool:
     return bool(request.session.get(SESSION_KEY))

@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from app.config import settings
 
 @contextmanager
-def get_db_connection():
+def get_db_connection(autocommit: bool = True):
     connection = pymysql.connect(
         host=settings.DB_HOST,
         port=settings.DB_PORT,
@@ -12,13 +12,15 @@ def get_db_connection():
         database=settings.DB_NAME,
         charset='utf8mb4',
         cursorclass=pymysql.cursors.DictCursor,
-        autocommit=False
+        autocommit=autocommit
     )
     try:
         yield connection
-        connection.commit()
+        if not autocommit:
+            connection.commit()
     except Exception:
-        connection.rollback()
+        if not autocommit:
+            connection.rollback()
         raise
     finally:
         connection.close()

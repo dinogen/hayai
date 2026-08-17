@@ -2,6 +2,9 @@ from fastapi import APIRouter, HTTPException
 from datetime import date, timedelta
 from app.db import execute_query
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -164,7 +167,8 @@ def get_portfolio_signals(code: str):
         if s.get('sentiment_breakdown'):
             try:
                 s['sentiment_breakdown'] = json.loads(s['sentiment_breakdown'])
-            except (TypeError, ValueError):
+            except (TypeError, ValueError) as e:
+                logger.warning(f"Failed to parse sentiment_breakdown JSON: {e}")
                 s['sentiment_breakdown'] = None
 
     return signals
