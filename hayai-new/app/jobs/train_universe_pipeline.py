@@ -2,8 +2,12 @@ import os
 import time
 import json
 import requests
+import numpy as np
 import pandas as pd
 import yfinance as yf
+import tensorflow as tf
+tf.random.set_seed(42)
+np.random.seed(42)
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Input
 from tensorflow.keras.callbacks import EarlyStopping
@@ -199,11 +203,18 @@ def build_dataset_and_train(split: str = 'random', version: str = None, make_act
         logger.info(f"Time split: train={len(X_train)} val={len(X_val)} test={len(X_test)} "
                     f"(train<={cutoffs['train_end']}, val<={cutoffs['val_end']})")
     else:
-        X = clean_df[feature_cols]
-        y = clean_df['target']
-        X_norm = (X - mins) / (maxs - mins + 1e-8)
-        y_norm = (y - label_min) / (label_max - label_min + 1e-8)
-        X_train, X_test, y_train, y_test = train_test_split(X_norm, y_norm, test_size=0.2, random_state=42)
+        X_train_raw, X_test_raw, y_train_raw, y_test_raw = train_test_split(
+            clean_df[feature_cols], clean_df['target'], test_size=0.2, random_state=42
+        )
+        mins = X_train_raw.min()
+        maxs = X_train_raw.max()
+        label_min = float(y_train_raw.min())
+        label_max = float(y_train_raw.max())
+
+        X_train = (X_train_raw - mins) / (maxs - mins + 1e-8)
+        y_train = (y_train_raw - label_min) / (label_max - label_min + 1e-8)
+        X_test = (X_test_raw - mins) / (maxs - mins + 1e-8)
+        y_test = (y_test_raw - label_min) / (label_max - label_min + 1e-8)
         validation_data = (X_test, y_test)
         cutoffs = None
 
