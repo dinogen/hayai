@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-navbar',
@@ -24,6 +25,10 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
             <a routerLink="/signals" routerLinkActive="active-link" style="color: #475569; text-decoration: none;">Segnali Ibridi</a>
             <a routerLink="/news" routerLinkActive="active-link" style="color: #475569; text-decoration: none;">Notizie & AI Summaries</a>
             <a routerLink="/config" routerLinkActive="active-link" style="color: #475569; text-decoration: none;">Configurazione</a>
+            <button *ngIf="auth.authenticated()" type="button" (click)="onLogout()"
+                    style="font-family: 'JetBrains Mono'; font-size: 0.85rem; font-weight: 600; color: #dc2626; background: transparent; border: 1px solid #dc2626; padding: 0.35rem 0.9rem; cursor: pointer; text-transform: uppercase; letter-spacing: 0.05em;">
+              Esci
+            </button>
           </nav>
         </div>
       </div>
@@ -37,4 +42,13 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
     }
   `]
 })
-export class NavbarComponent {}
+export class NavbarComponent {
+  constructor(
+    public auth: AuthService,
+    private router: Router
+  ) {}
+
+  onLogout() {
+    this.auth.logoutAndRedirect();
+  }
+}

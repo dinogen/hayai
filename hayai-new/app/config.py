@@ -92,6 +92,12 @@ class Settings:
     # while away (e.g. holidays).
     NEWS_LLM_ENABLED: bool = _parse_bool(os.getenv("NEWS_LLM_ENABLED", "true"))
 
+    # Auth (single user, cookie-based session)
+    AUTH_USERNAME: str = os.getenv("AUTH_USERNAME", "")
+    AUTH_PASSWORD: str = os.getenv("AUTH_PASSWORD", "")
+    AUTH_SESSION_SECRET: str = os.getenv("AUTH_SESSION_SECRET", "")
+    AUTH_SESSION_MAX_AGE: int = int(os.getenv("AUTH_SESSION_MAX_AGE", "43200"))
+
     # Filesystem paths support: /opt/hayai on Linux, local relative folder on Windows
     @property
     def HAYAI_ROOT(self) -> Path:

@@ -61,6 +61,14 @@ NEWS_LLM_ENABLED=true
 # FastAPI / Uvicorn
 API_HOST=127.0.0.1
 API_PORT=8000
+
+# Autenticazione (un solo utente, sessione via cookie)
+# AUTH_SESSION_SECRET: stringa casuale lunga, generata con:
+#   python -c "import secrets; print(secrets.token_hex(32))"
+AUTH_USERNAME=il_tuo_utente
+AUTH_PASSWORD=la_tua_password
+AUTH_SESSION_SECRET=esadecimale-casuale-lungo
+AUTH_SESSION_MAX_AGE=43200
 ```
 
 ---

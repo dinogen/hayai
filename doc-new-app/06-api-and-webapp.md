@@ -16,7 +16,10 @@ Gira su uvicorn (`127.0.0.1:8000`) ed è esposta al browser tramite `nginx`.
 
 | Endpoint | Metodo | Descrizione |
 |---|---|---|
-| `/api/health` | GET | Stato del servizio e data dell'ultimo job in `job_run` |
+| `/api/health` | GET | Stato del servizio e data dell'ultimo job in `job_run`. **Endpoint pubblico** (usato dal monitoraggio) |
+| `/api/auth/login` | POST | Autenticazione (solo un utente). Body `{"username": ..., "password": ...}`; su successo imposta il cookie di sessione. **Pubblico** |
+| `/api/auth/logout` | POST | Termina la sessione e cancella il cookie |
+| `/api/auth/me` | GET | Stato sessione: `{"authenticated": true/false}`. **Pubblico** (mai 401) |
 | `/api/portfolios` | GET | Elenco dei portafogli attivi |
 | `/api/portfolios/{code}` | GET | Dettaglio del portafoglio (parametri, strumenti associati). Ogni strumento include anche `sector`, `country`, `area` e `metadata_date` (metadati dal job `metadata`). Filtro opzionale `?area=eu|usa|asia|emerging|other` per limitare gli strumenti a una specifica area geografica |
 | `/api/portfolios/{code}/recommendations/latest` | GET | **Composizione consigliata (ultima data)**: pesi, side, importi, variazioni vs settimana precedente |
@@ -30,6 +33,39 @@ Gira su uvicorn (`127.0.0.1:8000`) ed è esposta al browser tramite `nginx`.
 | `/api/portfolios/{code}/summaries/latest` | GET | **Riassunto Markdown giornaliero** generato da DeepSeek |
 | `/api/portfolios/{code}/config` | POST | **Aggiornamento configurazione**: body `{"max_assets": N}` (intero ≥ 1); aggiorna il cap massimo asset del portafoglio e restituisce i parametri correnti |
 | `/api/markets/status` | GET | **Stato mercati globali**: per USA (NYSE/Nasdaq), Europe (Xetra/Euronext) e Asia (Tokyo TSE) restituisce `code`, `name`, `timezone`, `local_time`, `is_open`, `open_time`, `close_time`, `next_open_at`, `next_close_at`. Giorni feriali (lun-ven), senza calendario festività; DST gestito automaticamente via `zoneinfo` |
+
+### Autenticazione e Sessione (cookie)
+
+L'applicazione prevede **un solo utente** (proprietario). Le credenziali sono
+fissate nel file `.env`:
+
+- `AUTH_USERNAME` — nome utente
+- `AUTH_PASSWORD` — password in chiaro (misura di sicurezza minima contro estranei)
+- `AUTH_SESSION_SECRET` — stringa casuale lunga usata per firmare il cookie
+  (generata con `python -c "import secrets; print(secrets.token_hex(32))"`)
+- `AUTH_SESSION_MAX_AGE` — durata del cookie in secondi (default `43200` = 12 ore)
+
+Meccanismo: **sessione via cookie firmato** (Starlette `SessionMiddleware`,
+dipendenza `itsdangerous`), nessuno store lato server, nessun JWT. Il cookie
+(`hayai_session`) è `HttpOnly`, `SameSite=Lax` e non usa il flag `Secure`
+perché l'app gira in HTTP su LAN (Raspberry Pi).
+
+- `POST /api/auth/login` confronta le credenziali con `hmac.compare_digest`
+  e, in caso di successo, imposta la sessione.
+- Tutti gli endpoint business (`/api/portfolios`, `/api/markets`, `/api/news`,
+  `/api/instruments`, `/api/config`) richiedono la sessione: senza cookie il
+  server risponde **401**.
+- `/api/health` e `/api/auth/*` restano pubblici (il monitoraggio non deve
+  autenticarsi; `/api/auth/me` non ritorna mai 401, serve al boot del frontend).
+
+**Sviluppo (Angular dev server)**: per evitare il problema del cookie
+`SameSite=Lax` su richieste cross-site (`localhost:4200` → `127.0.0.1:8000`),
+il dev server usa un **proxy** (`web/proxy.conf.json`, abilitato in
+`angular.json`): le richieste `/api` vengono inoltrate dal frontend al backend,
+quindi per il browser tutto è **stessa origine** e la sessione funziona come in
+produzione. `apiUrl` è relativo (`/api`) sia in dev sia in prod. Il backend
+mantiene comunque CORS a origini esplicite con `allow_credentials=True` per
+eventuali client che chiamino l'API direttamente in cross-origin.
 
 ### Metadati strumento (sector / country / area)
 
@@ -59,7 +95,20 @@ quando il valore cambia tramite `.set()`, Angular aggiorna automaticamente la
 vista. **Regola per i futuri componenti**: nessuna proprietà mutata in callback
 asincroni; usare sempre `signal` + `.set()` e `*ngFor="let x of items()"`.
 
-### 2.1 Vista Principale del Martedì (Investment Thesis View)
+### 2.1 Autenticazione nel Frontend
+
+- **AuthService** (`core/services/auth.service.ts`): espone `login()`, `logout()`,
+  `checkAuth()` (chiama `/api/auth/me`) e uno stato `authenticated` come `signal`.
+- **Interceptor HTTP** (`core/interceptors/auth.interceptor.ts`): aggiunge
+  `withCredentials: true` a ogni richiesta (necessario in dev cross-origin) e, su
+  una risposta **401** da endpoint business, resetta lo stato e redirige a `/login`.
+- **Guard di rotta** (`core/guards/auth.guard.ts`): tutte le rotte protette eseguono
+  `checkAuth()`; se non autenticate redirigono alla pagina di login.
+- **Pagina Login** (`features/login/login.component.ts`, rotta `/login`): form
+  utente/password in stile "Cyber Light HUD"; su successo naviga alla dashboard.
+- **Navbar**: mostra il pulsante "Esci" quando la sessione è attiva.
+
+### 2.2 Vista Principale del Martedì (Investment Thesis View)
 La schermata chiave della webapp è la pagina di **Composizione Consigliata** (`/portfolios/:code/recommendations`), pensata per essere aperta il martedì prima di parlare con il promotore finanziario.
 
 Ogni asset raccomandato è presentato sotto forma di **Scheda Tesi di Investimento (Investment Thesis Card)**:
@@ -80,7 +129,7 @@ Ogni asset raccomandato è presentato sotto forma di **Scheda Tesi di Investimen
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 Altre Viste della SPA
+### 2.3 Altre Viste della SPA
 1. **Dashboard (`/`)**: Panoramica di tutti i portafogli, stato dei job notturni (successo/fallimento), data dell'ultimo aggiornamento dati e box **"Mercati Aperti / Chiusi"** (USA, Europe, Asia) con pallino verde/rosso, ora locale e orari di borsa; lo stato è ricalcolato dal backend (`GET /api/markets/status`) e il frontend lo aggiorna ogni 60s.
 2. **Portafoglio Attuale (`/portfolio`)**: Vista e **modifica manuale** delle posizioni effettivamente detenute (long/short). Tabella editor con `qty` e `avg_price` modificabili, toggle side, chiusura posizione e apertura di nuove posizioni dalla watchlist. Pulsante **"Applica Raccomandazioni del Modello"** (popola l'editor con la composizione target alla lettera) e pulsante **"SALVA"** che persiste via `POST /holdings/save`. Short rappresentato con `qty` negativa; P&L posizione = `qty × (close − avg_price)`.
 3. **Tabella Segnali (`/portfolios/:code/signals`)**: Elenco completo di tutti gli strumenti del portafoglio con il dettaglio di come il punteggio matematico è stato corretto dal sentiment dell'IA. Ogni riga è espandibile e mostra il **dettaglio per-notizia** (`impact_score`, durata, confidenza, età, decay, contributo) che ha generato il modificatore.

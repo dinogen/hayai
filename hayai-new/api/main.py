@@ -1,7 +1,11 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+
+from api.auth import SESSION_COOKIE_NAME, require_auth
+from api.routers import auth, portfolios, config, holdings, markets, instruments
+from app.config import settings
 from app.db import execute_query
-from api.routers import portfolios, config, holdings, markets, instruments
 
 app = FastAPI(
     title="HAYAI v2 API",
@@ -9,19 +13,38 @@ app = FastAPI(
     version="2.0.0"
 )
 
+# Signed cookie session: single user authenticates via POST /api/auth/login.
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.AUTH_SESSION_SECRET,
+    session_cookie=SESSION_COOKIE_NAME,
+    max_age=settings.AUTH_SESSION_MAX_AGE,
+    same_site="lax",
+    https_only=False,
+)
+
+# Credentialed requests (cookies) require explicit origins, not "*".
+DEV_ORIGINS = [
+    "http://localhost:4200",
+    "http://127.0.0.1:4200",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=DEV_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(portfolios.router, prefix="/api", tags=["Portfolios"])
-app.include_router(config.router, prefix="/api", tags=["Configuration"])
-app.include_router(holdings.router, prefix="/api", tags=["Holdings"])
-app.include_router(markets.router, prefix="/api", tags=["Markets"])
-app.include_router(instruments.router, prefix="/api", tags=["Instruments"])
+# Public: authentication endpoints only.
+app.include_router(auth.router, prefix="/api", tags=["Authentication"])
+
+# All business endpoints require an authenticated session.
+app.include_router(portfolios.router, prefix="/api", tags=["Portfolios"], dependencies=[Depends(require_auth)])
+app.include_router(config.router, prefix="/api", tags=["Configuration"], dependencies=[Depends(require_auth)])
+app.include_router(holdings.router, prefix="/api", tags=["Holdings"], dependencies=[Depends(require_auth)])
+app.include_router(markets.router, prefix="/api", tags=["Markets"], dependencies=[Depends(require_auth)])
+app.include_router(instruments.router, prefix="/api", tags=["Instruments"], dependencies=[Depends(require_auth)])
 
 @app.get("/api/health")
 def health_check():

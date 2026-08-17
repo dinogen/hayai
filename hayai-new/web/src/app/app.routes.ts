@@ -7,19 +7,23 @@ import { SignalsComponent } from './features/signals/signals.component';
 import { NewsComponent } from './features/news/news.component';
 import { NewsDetailComponent } from './features/news/news-detail.component';
 import { ConfigComponent } from './features/config/config.component';
+import { LoginComponent } from './features/login/login.component';
+import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
-  { path: '', component: DashboardComponent },
-  { path: 'portfolio', component: HoldingsComponent },
-  { path: 'watchlist', component: WatchlistComponent },
+  { path: 'login', component: LoginComponent },
+  { path: '', component: DashboardComponent, canActivate: [authGuard] },
+  { path: 'portfolio', component: HoldingsComponent, canActivate: [authGuard] },
+  { path: 'watchlist', component: WatchlistComponent, canActivate: [authGuard] },
   {
     path: 'watchlist/:symbol',
+    canActivate: [authGuard],
     loadComponent: () => import('./features/instrument/instrument-detail.component').then((m) => m.InstrumentDetailComponent),
   },
-  { path: 'recommendations', component: RecommendationsComponent },
-  { path: 'signals', component: SignalsComponent },
-  { path: 'news', component: NewsComponent },
-  { path: 'news/:id', component: NewsDetailComponent },
-  { path: 'config', component: ConfigComponent },
+  { path: 'recommendations', component: RecommendationsComponent, canActivate: [authGuard] },
+  { path: 'signals', component: SignalsComponent, canActivate: [authGuard] },
+  { path: 'news', component: NewsComponent, canActivate: [authGuard] },
+  { path: 'news/:id', component: NewsDetailComponent, canActivate: [authGuard] },
+  { path: 'config', component: ConfigComponent, canActivate: [authGuard] },
   { path: '**', redirectTo: '' }
 ];
