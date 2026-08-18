@@ -61,16 +61,17 @@ def get_portfolio_detail(code: str, area: str | None = None):
 
 @router.get("/portfolios/{code}/recommendations/latest")
 def get_latest_recommendations(code: str):
-    port = execute_query("SELECT id, initial_capital, risk_percentage FROM portfolio WHERE code = %s", (code,))
+    port = execute_query("SELECT id, initial_capital, risk_percentage, rebalance_threshold_eur FROM portfolio WHERE code = %s", (code,))
     if not port:
         raise HTTPException(status_code=404, detail="Portfolio not found")
     
     portfolio_id = port[0]['id']
     equity_indicativa = float(port[0]['initial_capital'])
     risk_pct = float(port[0]['risk_percentage'])
+    rebalance_threshold = float(port[0].get('rebalance_threshold_eur') or 50.0)
 
     recs = execute_query("""
-        SELECT pr.rec_date, pr.weight, pr.side, pr.target_amount, pr.target_qty, pr.prev_weight,
+        SELECT pr.instrument_id, pr.rec_date, pr.weight, pr.side, pr.target_amount, pr.target_qty, pr.prev_weight,
         i.symbol, i.name, i.instrument_type, i.currency,
         ps.quant_score, ps.llm_sentiment_modifier, ps.final_signal, ps.ai_rationale,
         pd.close as current_price
@@ -83,14 +84,115 @@ def get_latest_recommendations(code: str):
         ORDER BY ABS(pr.weight) DESC
     """, (portfolio_id, portfolio_id))
 
+    curr_pos = execute_query("""
+        SELECT pp.instrument_id, pp.qty, pp.avg_price,
+               i.symbol, i.name, i.instrument_type,
+               pd.close AS current_price
+        FROM portfolio_position pp
+        JOIN instrument i ON pp.instrument_id = i.id
+        JOIN (
+            SELECT instrument_id, MAX(pos_date) AS max_date
+            FROM portfolio_position WHERE portfolio_id = %s
+            GROUP BY instrument_id
+        ) cur ON cur.instrument_id = pp.instrument_id AND cur.max_date = pp.pos_date
+        LEFT JOIN (
+            SELECT instrument_id, MAX(trade_date) AS max_date
+            FROM price_daily WHERE close IS NOT NULL
+            GROUP BY instrument_id
+        ) mx ON mx.instrument_id = pp.instrument_id
+        LEFT JOIN price_daily pd ON pd.instrument_id = mx.instrument_id AND pd.trade_date = mx.max_date
+        WHERE pp.portfolio_id = %s AND pp.qty != 0
+    """, (portfolio_id, portfolio_id))
+
     rec_date = recs[0]['rec_date'] if recs else None
+
+    inst_data = {}
+    for r in recs:
+        inst_id = r['instrument_id']
+        inst_data[inst_id] = {
+            "instrument_id": inst_id,
+            "symbol": r['symbol'],
+            "name": r.get('name'),
+            "instrument_type": r.get('instrument_type'),
+            "target_qty": float(r['target_qty'] or 0),
+            "target_side": r.get('side', 'long'),
+            "owned_qty": 0.0,
+            "owned_side": None,
+            "current_price": float(r['current_price']) if r.get('current_price') else 0.0,
+        }
+
+    for p in curr_pos:
+        inst_id = p['instrument_id']
+        qty = float(p['qty'] or 0)
+        cur_price = float(p['current_price']) if p.get('current_price') else (float(p['avg_price']) if p.get('avg_price') else 0.0)
+        if inst_id not in inst_data:
+            inst_data[inst_id] = {
+                "instrument_id": inst_id,
+                "symbol": p['symbol'],
+                "name": p.get('name'),
+                "instrument_type": p.get('instrument_type'),
+                "target_qty": 0.0,
+                "target_side": None,
+                "owned_qty": abs(qty),
+                "owned_side": 'long' if qty > 0 else 'short',
+                "current_price": cur_price,
+            }
+        else:
+            inst_data[inst_id]["owned_qty"] = abs(qty)
+            inst_data[inst_id]["owned_side"] = 'long' if qty > 0 else 'short'
+            if not inst_data[inst_id]["current_price"] and cur_price:
+                inst_data[inst_id]["current_price"] = cur_price
+
+    reconciliation = []
+    for inst_id, data in inst_data.items():
+        owned = data["owned_qty"]
+        target = data["target_qty"]
+        price = data["current_price"]
+        
+        if owned == 0 and target > 0:
+            action = "buy"
+            diff = target
+            message = f"compra {int(target) if target.is_integer() else target} di questo"
+        elif owned > 0 and target == 0:
+            action = "sell"
+            diff = owned
+            message = "chiudi questa posizione"
+        elif owned > 0 and target > 0:
+            diff_qty = abs(target - owned)
+            diff_eur = diff_qty * price
+            if diff_eur < rebalance_threshold:
+                action = "hold"
+                diff = 0.0
+                message = "mantieni (invariato)"
+            elif target > owned:
+                diff = diff_qty
+                action = "buy"
+                message = f"compra {int(diff) if diff.is_integer() else diff} di questo"
+            elif target < owned:
+                diff = diff_qty
+                action = "sell"
+                message = f"vendi {int(diff) if diff.is_integer() else diff} di questo"
+            else:
+                diff = 0.0
+                action = "hold"
+                message = "mantieni (invariato)"
+        else:
+            continue
+
+        data["diff"] = diff
+        data["action"] = action
+        data["message"] = message
+        reconciliation.append(data)
+
+    reconciliation.sort(key=lambda x: x['symbol'])
 
     return {
         "portfolio_code": code,
         "rec_date": rec_date,
         "equity_indicativa": equity_indicativa,
         "risk_percentage": risk_pct,
-        "items": recs
+        "items": recs,
+        "reconciliation": reconciliation
     }
 
 @router.get("/portfolios/{code}/value")

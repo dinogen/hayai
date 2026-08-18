@@ -69,8 +69,11 @@ export class ApiService {
     return this.http.get(`${this.baseUrl}/portfolios/${code}/config`);
   }
 
-  updatePortfolioConfig(code: string, maxAssets: number): Observable<any> {
-    return this.http.post(`${this.baseUrl}/portfolios/${code}/config`, { max_assets: maxAssets });
+  updatePortfolioConfig(code: string, maxAssets?: number, rebalanceThresholdEur?: number): Observable<any> {
+    const payload: any = {};
+    if (maxAssets !== undefined) payload.max_assets = maxAssets;
+    if (rebalanceThresholdEur !== undefined) payload.rebalance_threshold_eur = rebalanceThresholdEur;
+    return this.http.post(`${this.baseUrl}/portfolios/${code}/config`, payload);
   }
 
   resetPortfolio(code: string, initialCapital: number): Observable<any> {

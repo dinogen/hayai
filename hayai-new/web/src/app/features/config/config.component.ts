@@ -40,20 +40,29 @@ import { ApiService } from '../../core/services/api.service';
             <div style="color: #94a3b8; font-size: 0.75rem;">MAX ASSET PORTAFOGLIO</div>
             <div style="font-weight: bold; color: #0f172a;">{{ config()?.max_assets || 'N/D' }}</div>
           </div>
+          <div>
+            <div style="color: #94a3b8; font-size: 0.75rem;">SOGLIA RIALLINEAMENTO</div>
+            <div style="font-weight: bold; color: #0f172a;">€{{ config()?.rebalance_threshold_eur | number:'1.2-2' }}</div>
+          </div>
         </div>
       </div>
 
-      <!-- Update Max Assets -->
+      <!-- Update Max Assets & Threshold -->
       <div class="hud-card">
         <h2 class="font-display" style="font-size: 1.15rem; font-weight: 700; color: #1e293b; margin-top: 0; margin-bottom: 0.25rem;">PARAMETRI</h2>
         <p style="font-family: 'Rajdhani'; font-size: 1rem; color: #64748b; margin: 0 0 1rem 0;">
-          Imposta il numero massimo di asset detenibili nel portafoglio. Il job di raccomandazione
-          notturna non supererà mai questo limite (top long + bottom short).
+          Imposta il numero massimo di asset detenibili nel portafoglio e la soglia di tolleranza in euro
+          sotto la quale le variazioni di riallineamento vengono ignorate (mantenute invariate).
         </p>
-        <div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+        <div style="display: flex; gap: 1.5rem; align-items: flex-end; flex-wrap: wrap;">
           <div>
             <label for="maxAssets" style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #64748b; display: block; margin-bottom: 0.35rem;">MAX ASSET (n.)</label>
             <input id="maxAssets" type="number" min="1" step="1" [(ngModel)]="maxAssets"
+                   style="font-family: 'JetBrains Mono'; font-size: 1rem; color: #0f172a; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 0.6rem 0.75rem; width: 180px;">
+          </div>
+          <div>
+            <label for="rebalanceThreshold" style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #64748b; display: block; margin-bottom: 0.35rem;">SOGLIA RIALLINEAMENTO (€)</label>
+            <input id="rebalanceThreshold" type="number" min="0" step="5" [(ngModel)]="rebalanceThresholdEur"
                    style="font-family: 'JetBrains Mono'; font-size: 1rem; color: #0f172a; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 0.6rem 0.75rem; width: 180px;">
           </div>
           <button type="button" class="btn-cyber" (click)="onSaveConfig()"
@@ -134,6 +143,7 @@ export class ConfigComponent implements OnInit {
   config = signal<any>(null);
   initialCapital = 5000;
   maxAssets = 20;
+  rebalanceThresholdEur = 50;
   status = signal<{ ok: boolean; message: string } | null>(null);
   configStatus = signal<{ ok: boolean; message: string } | null>(null);
   newsLlmEnabled = signal<boolean>(true);
@@ -147,6 +157,7 @@ export class ConfigComponent implements OnInit {
         this.config.set(res);
         this.initialCapital = Number(res.initial_capital) || 5000;
         this.maxAssets = Number(res.max_assets) || 20;
+        this.rebalanceThresholdEur = Number(res.rebalance_threshold_eur) ?? 50;
       },
       error: (err) => {
         console.error(err);
@@ -165,16 +176,22 @@ export class ConfigComponent implements OnInit {
 
   onSaveConfig() {
     const maxAssets = Number(this.maxAssets);
+    const threshold = Number(this.rebalanceThresholdEur);
     if (!Number.isInteger(maxAssets) || maxAssets < 1) {
       this.configStatus.set({ ok: false, message: 'Inserisci un numero massimo di asset valido (intero maggiore o uguale a 1).' });
       return;
     }
+    if (isNaN(threshold) || threshold < 0) {
+      this.configStatus.set({ ok: false, message: 'Inserisci una soglia di riallineamento valida (maggiore o uguale a 0).' });
+      return;
+    }
 
-    this.api.updatePortfolioConfig('main', maxAssets).subscribe({
+    this.api.updatePortfolioConfig('main', maxAssets, threshold).subscribe({
       next: (res) => {
         this.config.set(res);
         this.maxAssets = Number(res.max_assets) || maxAssets;
-        this.configStatus.set({ ok: true, message: `Configurazione salvata: max ${res.max_assets} asset nel portafoglio.` });
+        this.rebalanceThresholdEur = Number(res.rebalance_threshold_eur) ?? threshold;
+        this.configStatus.set({ ok: true, message: `Configurazione salvata: max ${res.max_assets} asset, soglia €${this.rebalanceThresholdEur.toFixed(2)}.` });
       },
       error: (err) => {
         console.error(err);

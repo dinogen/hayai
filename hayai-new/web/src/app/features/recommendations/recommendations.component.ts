@@ -107,11 +107,56 @@ import { ApiService } from '../../core/services/api.service';
           </div>
         </div>
       </div>
+
+      <!-- Full Outer Join / Reconciliation Table -->
+      <div class="hud-card" style="margin-top: 2rem;" *ngIf="reconciliation().length > 0">
+        <div style="margin-bottom: 1rem;">
+          <span style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #365314; background: #f7fee7; padding: 0.25rem 0.5rem; border: 1px solid #bef264; text-transform: uppercase; letter-spacing: 0.05em;">Riallineamento Portafoglio</span>
+          <h2 class="font-display" style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-top: 0.25rem; margin-bottom: 0;">TABELLA DI RICONCILIAZIONE (FULL OUTER JOIN)</h2>
+          <p style="font-family: 'Rajdhani'; font-size: 1rem; color: #64748b; margin: 0;">Confronto tra posizioni attuali e raccomandazioni target per la revisione.</p>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono'; font-size: 0.85rem; text-align: left;">
+            <thead>
+              <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                <th style="padding: 0.75rem;">Ticker</th>
+                <th style="padding: 0.75rem; text-align: right;">Quote Possedute</th>
+                <th style="padding: 0.75rem; text-align: right;">Quote Raccomandate</th>
+                <th style="padding: 0.75rem;">Azione / Messaggio</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of reconciliation()" style="border-bottom: 1px solid #e2e8f0; color: #1e293b;">
+                <td style="padding: 0.75rem; font-weight: bold;">
+                  <span style="color: #0f172a; font-size: 0.95rem;">{{ row.symbol }}</span>
+                  <span style="display: block; font-size: 0.7rem; color: #64748b; font-weight: normal;">{{ row.name || row.instrument_type }}</span>
+                </td>
+                <td style="padding: 0.75rem; text-align: right; font-weight: 600;">
+                  {{ row.owned_qty }}
+                </td>
+                <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: #4d7c0f;">
+                  {{ row.target_qty }}
+                </td>
+                <td style="padding: 0.75rem;">
+                  <span [style.background]="row.action === 'buy' ? '#ecfccb' : (row.action === 'sell' ? '#ffe4e4' : '#f1f5f9')"
+                        [style.color]="row.action === 'buy' ? '#365314' : (row.action === 'sell' ? '#991b1b' : '#475569')"
+                        [style.borderColor]="row.action === 'buy' ? '#bef264' : (row.action === 'sell' ? '#fecaca' : '#cbd5e1')"
+                        style="display: inline-block; padding: 0.25rem 0.6rem; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; border: 1px solid; letter-spacing: 0.05em;">
+                    {{ row.message | uppercase }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   `
 })
 export class RecommendationsComponent implements OnInit {
   items = signal<any[]>([]);
+  reconciliation = signal<any[]>([]);
   recDate = signal('');
   equityIndicativa = signal(5000);
   riskPct = signal(0.9);
@@ -147,6 +192,7 @@ export class RecommendationsComponent implements OnInit {
     this.api.getLatestRecommendations('main').subscribe({
       next: (res) => {
         this.items.set(res.items || []);
+        this.reconciliation.set(res.reconciliation || []);
         this.recDate.set(res.rec_date);
         this.equityIndicativa.set(res.equity_indicativa || 5000);
         this.riskPct.set(res.risk_percentage || 0.9);
