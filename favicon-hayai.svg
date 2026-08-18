@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="100%" height="100%">
+  <defs>
+    <style>
+      .bg { fill: #0d0d0f; }
+      .kanji-glow {
+        fill: none;
+        stroke: #39ff14;
+        stroke-width: 2.5;
+        stroke-linejoin: miter;
+        stroke-miterlimit: 3;
+        opacity: 0.85;
+      }
+      .kanji-core {
+        fill: none;
+        stroke: #ffffff;
+        stroke-width: 1.2;
+        stroke-linejoin: miter;
+        stroke-miterlimit: 3;
+      }
+      .glitch-accent {
+        fill: #ccff00;
+      }
+      @media (prefers-color-scheme: light) {
+        .bg { fill: #0a0a0c; }
+      }
+    </style>
+  </defs>
+
+  <!-- Background Cyberpunk -->
+  <rect class="bg" width="32" height="32" rx="4" />
+  <rect x="0.5" y="0.5" width="31" height="31" rx="3.5" fill="none" stroke="#39ff14" stroke-opacity="0.2" stroke-width="0.5" />
+
+  <!-- GEOMETRIC KANJI "速" (HAYAI) -->
+  <g shape-rendering="geometricPrecision">
+    <!-- Glow Neon (Giallo-Verde) -->
+    <g class="kanji-glow">
+      <path d="M 5,7 L 11,7 L 7,12 L 11,12 L 6,18 L 10,21 L 5,26 L 27,26" />
+      <path d="M 14,8 L 26,8" />
+      <path d="M 20,5 L 20,22" />
+      <path d="M 15,12 L 25,12 L 25,17 L 15,17 Z" />
+      <path d="M 15,14.5 L 25,14.5" />
+      <path d="M 20,17 L 14,23" />
+      <path d="M 20,17 L 26,23" />
+    </g>
+
+    <!-- Core Bianco Intenso -->
+    <g class="kanji-core">
+      <path d="M 5,7 L 11,7 L 7,12 L 11,12 L 6,18 L 10,21 L 5,26 L 27,26" />
+      <path d="M 14,8 L 26,8" />
+      <path d="M 20,5 L 20,22" />
+      <path d="M 15,12 L 25,12 L 25,17 L 15,17 Z" />
+      <path d="M 15,14.5 L 25,14.5" />
+      <path d="M 20,17 L 14,23" />
+      <path d="M 20,17 L 26,23" />
+    </g>
+
+    <!-- Dettagli Glitch -->
+    <rect class="glitch-accent" x="25" y="7" width="2" height="2" />
+    <rect class="glitch-accent" x="4" y="25" width="1.5" height="1.5" />
+  </g>
+</svg>
