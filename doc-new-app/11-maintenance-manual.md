@@ -189,7 +189,51 @@ di mercato e l'header mostra NAV e P&L (vs mese scorso e vs €5.000 iniziali).
 
 ---
 
-## 7. Checklist di Primo Soccorso
+## 7. Procedura di Deploy e Aggiornamento sul Raspberry Pi
+
+Dopo aver apportato modifiche al codice (backend Python o frontend Angular) ed eseguito il trasferimento o l'aggiornamento sul Raspberry Pi, occorre seguire questa procedura per aggiornare l'ambiente di produzione:
+
+### 7.1 Aggiornamento del Frontend (Angular SPA)
+1. Spostarsi nella directory del frontend:
+   ```bash
+   cd ~/hayai/hayai-new/web
+   ```
+2. Installare eventuali nuove dipendenze (se necessario):
+   ```bash
+   npm install
+   ```
+3. Eseguire la build di produzione:
+   ```bash
+   npm run build
+   ```
+   * I file statici compilati vengono generati nella directory `dist/web` (o `dist/web/browser`), configurata come root di **nginx**.
+
+### 7.2 Aggiornamento del Backend (FastAPI)
+1. Spostarsi nella directory del progetto:
+   ```bash
+   cd ~/hayai/hayai-new
+   ```
+2. Attivare il virtual environment Python e aggiornare le dipendenze (se `requirements.txt` è stato modificato):
+   ```bash
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
+3. Riavviare il servizio systemd di FastAPI:
+   ```bash
+   sudo systemctl restart hayai-api
+   ```
+4. Controllare lo stato del servizio per verificare che sia attivo e in ascolto:
+   ```bash
+   sudo systemctl status hayai-api
+   ```
+
+### 7.3 Database e Script Batch
+- Eventuali modifiche strutturali al database (es. nuove colonne) devono essere applicate su MariaDB prima o contestualmente all'aggiornamento del backend.
+- Gli script batch CLI (`python -m app.cli <job>`) non richiedono riavvii di demoni poiché ogni esecuzione via `cron` carica l'ultima versione del codice sorgente.
+
+---
+
+## 8. Checklist di Primo Soccorso
 
 | Sintomo | Cosa controllare |
 |---|---|

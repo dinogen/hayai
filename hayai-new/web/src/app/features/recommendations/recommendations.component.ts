@@ -133,10 +133,10 @@ import { ApiService } from '../../core/services/api.service';
                   <span style="display: block; font-size: 0.7rem; color: #64748b; font-weight: normal;">{{ row.name || row.instrument_type }}</span>
                 </td>
                 <td style="padding: 0.75rem; text-align: right; font-weight: 600;">
-                  {{ row.owned_qty }}
+                  {{ row.owned_qty | number:'1.2-2' }}
                 </td>
                 <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: #4d7c0f;">
-                  {{ row.target_qty }}
+                  {{ row.target_qty | number:'1.2-2' }}
                 </td>
                 <td style="padding: 0.75rem;">
                   <span [style.background]="row.action === 'buy' ? '#ecfccb' : (row.action === 'sell' ? '#ffe4e4' : '#f1f5f9')"

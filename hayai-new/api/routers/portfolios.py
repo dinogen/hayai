@@ -143,6 +143,9 @@ def get_latest_recommendations(code: str):
             if not inst_data[inst_id]["current_price"] and cur_price:
                 inst_data[inst_id]["current_price"] = cur_price
 
+    def _fmt_qty(q: float) -> str:
+        return f"{q:.2f}"
+
     reconciliation = []
     for inst_id, data in inst_data.items():
         owned = data["owned_qty"]
@@ -152,7 +155,7 @@ def get_latest_recommendations(code: str):
         if owned == 0 and target > 0:
             action = "buy"
             diff = target
-            message = f"compra {int(target) if target.is_integer() else target} di questo"
+            message = f"compra {_fmt_qty(target)} di questo"
         elif owned > 0 and target == 0:
             action = "sell"
             diff = owned
@@ -167,11 +170,11 @@ def get_latest_recommendations(code: str):
             elif target > owned:
                 diff = diff_qty
                 action = "buy"
-                message = f"compra {int(diff) if diff.is_integer() else diff} di questo"
+                message = f"compra {_fmt_qty(diff)} di questo"
             elif target < owned:
                 diff = diff_qty
                 action = "sell"
-                message = f"vendi {int(diff) if diff.is_integer() else diff} di questo"
+                message = f"vendi {_fmt_qty(diff)} di questo"
             else:
                 diff = 0.0
                 action = "hold"
