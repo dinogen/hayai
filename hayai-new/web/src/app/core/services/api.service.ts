@@ -52,6 +52,10 @@ export class ApiService {
     return this.http.get(`${this.baseUrl}/portfolios/${code}/holdings`);
   }
 
+  getReportMarkdown(code: string): Observable<string> {
+    return this.http.get(`${this.baseUrl}/portfolios/${code}/holdings/report.md`, { responseType: 'text' });
+  }
+
   getWatchlist(code: string): Observable<any> {
     return this.http.get(`${this.baseUrl}/portfolios/${code}/watchlist`);
   }

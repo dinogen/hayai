@@ -66,7 +66,11 @@ interface NewForm {
                 style="background: #0f172a; box-shadow: 0 2px 4px rgba(15,23,42,0.25);">
           Applica Raccomandazioni del Modello
         </button>
-        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: stretch;">
+          <button type="button" (click)="downloadReport()"
+                  style="font-family: 'JetBrains Mono'; font-size: 0.8rem; font-weight: 600; color: #1e40af; background: #eff6ff; border: 1.5px dashed #1e40af; border-radius: 999px; padding: 0.55rem 1rem; cursor: pointer;">
+            ⬇ Scarica Report MD
+          </button>
           <button type="button" class="btn-cyber" (click)="cancelEdit()" style="background: #64748b;">Annulla</button>
           <button type="button" class="btn-cyber" (click)="save()" [disabled]="saving()"
                   style="background: #65a30d; box-shadow: 0 2px 4px rgba(101,163,13,0.25);">
@@ -251,6 +255,21 @@ export class HoldingsComponent implements OnInit {
   formatPnl(amount: number): string {
     const sign = amount >= 0 ? '+' : '-';
     return `${sign}€${Math.abs(amount).toFixed(2)}`;
+  }
+
+  downloadReport() {
+    this.api.getReportMarkdown('main').subscribe({
+      next: (text) => {
+        const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'report-main.md';
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (err) => console.error(err)
+    });
   }
 
   hasRecommendations(): boolean {

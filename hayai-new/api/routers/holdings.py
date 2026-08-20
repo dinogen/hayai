@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
-from datetime import date
+from datetime import date, datetime
 from app.db import execute_query, get_db_connection
 from app.math_utils import round_short_qty
 
@@ -95,7 +95,7 @@ def _latest_close_map() -> dict:
 
 def _current_positions(portfolio_id: int) -> list:
     return execute_query("""
-        SELECT pp.instrument_id, pp.qty, pp.avg_price, pp.market_value,
+        SELECT pp.instrument_id, pp.qty, pp.avg_price, pp.market_value, pp.pos_date,
                i.symbol, i.name, i.instrument_type,
                pd.close AS current_price
         FROM portfolio_position pp
@@ -184,6 +184,85 @@ def get_holdings(code: str):
             ],
         },
     }
+
+
+@router.get("/portfolios/{code}/holdings/report.md")
+def get_holdings_report(code: str):
+    """Markdown report of the current open positions (purchase price and date)."""
+    port = _portfolio(code)
+    portfolio_id = port['id']
+    initial_capital = float(port['initial_capital'])
+
+    pos_rows = _current_positions(portfolio_id)
+
+    purchase_rows = execute_query("""
+        SELECT pt.instrument_id, MAX(pt.trade_date) AS purchase_date
+        FROM portfolio_trade pt
+        WHERE pt.portfolio_id = %s AND pt.side IN ('buy', 'short')
+        GROUP BY pt.instrument_id
+    """, (portfolio_id,))
+    purchase_map = {int(r['instrument_id']): r['purchase_date'].isoformat() for r in purchase_rows}
+
+    positions = []
+    for r in pos_rows:
+        qty = float(r['qty'])
+        avg_price = float(r['avg_price']) if r['avg_price'] else 0.0
+        close = float(r['current_price']) if r['current_price'] else avg_price
+        side = 'LONG' if qty > 0 else 'SHORT'
+        market_value = round(qty * close, 2)
+        pnl = round(qty * (close - avg_price), 2)
+        purchase_date = purchase_map.get(int(r['instrument_id']), r['pos_date'].isoformat())
+        positions.append({
+            "symbol": r['symbol'],
+            "name": r['name'],
+            "side": side,
+            "qty": abs(qty),
+            "avg_price": avg_price,
+            "purchase_date": purchase_date,
+            "current_price": close,
+            "market_value": market_value,
+            "pnl": pnl,
+        })
+
+    cash_rows = execute_query("""
+        SELECT balance FROM portfolio_cash
+        WHERE portfolio_id = %s ORDER BY cash_date DESC LIMIT 1
+    """, (portfolio_id,))
+    cash = float(cash_rows[0]['balance']) if cash_rows else initial_capital
+    positions_value = round(sum(p['market_value'] for p in positions), 2)
+    nav = round(cash + positions_value, 2)
+
+    def _eur(v: float) -> str:
+        return f"€{v:,.2f}"
+
+    md_lines = []
+    md_lines.append(f"# Report Portafoglio — {code}")
+    md_lines.append("")
+    md_lines.append(f"Generato: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    md_lines.append("")
+    md_lines.append("## Riepilogo")
+    md_lines.append("")
+    md_lines.append("| Voce | Importo |")
+    md_lines.append("|---|---|")
+    md_lines.append(f"| Capitale iniziale | {_eur(initial_capital)} |")
+    md_lines.append(f"| NAV | {_eur(nav)} |")
+    md_lines.append(f"| Liquidità (cash) | {_eur(cash)} |")
+    md_lines.append(f"| Valore posizioni | {_eur(positions_value)} |")
+    md_lines.append("")
+    md_lines.append("## Posizioni correnti")
+    md_lines.append("")
+    md_lines.append("| Simbolo | Nome | Side | Qty | Prezzo carico | Data acquisto | Prezzo attuale | Valore | P&L |")
+    md_lines.append("|---|---|---|---|---|---|---|---|---|")
+    for p in positions:
+        md_lines.append(
+            f"| {p['symbol']} | {p['name'] or p['symbol']} | {p['side']} "
+            f"| {p['qty']:,.4f} | {p['avg_price']:,.4f} | {p['purchase_date']} "
+            f"| {p['current_price']:,.4f} | {_eur(p['market_value'])} | {_eur(p['pnl'])} |"
+        )
+
+    md = "\n".join(md_lines) + "\n"
+    headers = {"Content-Disposition": f'attachment; filename="report-{code}.md"'}
+    return Response(content=md, media_type="text/markdown; charset=utf-8", headers=headers)
 
 
 @router.get("/portfolios/{code}/watchlist")
