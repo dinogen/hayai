@@ -14,7 +14,7 @@ python -m app.cli <job_name> [--portfolio <code>]
 ```
 
 ### Elenco dei Job Notturni
-1. **`data`**: Scarica i prezzi giornalieri OHLCV, forex e indici da yfinance e fa l'upsert in `price_daily`, `fx_rate`, `index_value`.
+1. **`data`**: Scarica i prezzi giornalieri OHLCV, forex e indici da yfinance e fa l'upsert in `price_daily`, `fx_rate`, `index_value`. Usa una cache parquet (TTL 24h) per evitare richieste ripetute; con il flag `--refresh` salta la cache e riscarica gli ultimi 5 giorni (usato per gli aggiornamenti intraday, vedi §3).
 2. **`metadata`**: Scarica settore, country e area degli strumenti (`sector`/`category`, `country`) da yfinance e aggiorna `instrument`. Salta gli strumenti aggiornati da meno di 30 giorni, oppure forza il refresh con `--force`.
 3. **`news`**: Scarica le notizie recenti per tutti gli strumenti attivi e le salva in `news`.
 4. **`sentiment`**: Invia le nuove notizie alle API di **DeepSeek**, ricava sentiment, confidence e rationale, e popola `news_sentiment`. **Viene saltato se `NEWS_LLM_ENABLED=false`** (vedi §2): in tal caso termina con stato `disabled` senza consumare token.
@@ -92,6 +92,15 @@ Crontab dell'utente di sistema (`dinogen`) sul Raspberry Pi per l'esecuzione aut
 
 # Backup giornaliero del database alle 04:15
 0  4 * * *     cd /opt/hayai/hayai-new && scripts/backup.sh >> logs/backup.log 2>&1
+
+# Aggiornamento prezzi intraday (refresh forzato, salta la cache):
+# ogni ora durante l'orario del mercato US (es. 15:30–22:00 CET).
+# 'data' usa la cache parquet per 24h; --refresh la ignora e riscarica gli
+# ultimi 5 giorni da yfinance. Regola le ore in base al tuo fuso orario.
+0  15-21 * * 1-5   cd /opt/hayai/hayai-new && /opt/hayai/venv/bin/python -m app.cli data --refresh >> logs/cron.log 2>&1
+
+# Mark-to-market intraday: rivaluta il NAV coi prezzi aggiornati subito dopo il refresh
+5  15-21 * * 1-5   cd /opt/hayai/hayai-new && /opt/hayai/venv/bin/python -m app.cli nav >> logs/cron.log 2>&1
 ```
 
 ---

@@ -7,7 +7,7 @@ from app.yf_client import YahooFinanceClient
 
 logger = setup_logger("app.jobs.data")
 
-def run_data_job(portfolio_code: str = "main") -> dict:
+def run_data_job(portfolio_code: str = "main", refresh: bool = False) -> dict:
     logger.info("Fetching active instruments...")
     query = """
         SELECT i.id, i.symbol 
@@ -42,15 +42,18 @@ def run_data_job(portfolio_code: str = "main") -> dict:
                 inst_id = ins['id']
                 symbol = ins['symbol']
 
-                df = load_cached(f"{symbol}_daily")
+                df = None
+                if not refresh:
+                    df = load_cached(f"{symbol}_daily")
                 if df is None:
                     try:
-                        df = client.download_history(symbol, period="1y", auto_adjust=True)
+                        df = client.download_history(symbol, period="5d" if refresh else "1y", auto_adjust=True)
                         if df.empty:
                             logger.warning(f"No history returned for {symbol}.")
                             continue
                         df = df.reset_index()
-                        save_cached(f"{symbol}_daily", df)
+                        if not refresh:
+                            save_cached(f"{symbol}_daily", df)
                         logger.info(f"Downloaded {len(df)} daily records for {symbol}.")
                     except Exception as ex:
                         logger.error(f"Error downloading symbol {symbol}: {ex}")

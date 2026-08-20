@@ -52,6 +52,7 @@ def main():
     parser.add_argument("job", choices=list(JOBS_MAP.keys()), help="Name of the batch job to run")
     parser.add_argument("--portfolio", type=str, default="main", help="Portfolio code (default: main)")
     parser.add_argument("--force", action="store_true", help="Force refresh even if metadata is fresh")
+    parser.add_argument("--refresh", action="store_true", help="Bypass the price cache and download fresh data (data job)")
     parser.add_argument("--days", type=int, default=14, help="Retention days for cleanup job (default: 14)")
     parser.add_argument("--version", type=str, default=None, help="Model version for verify/backtest (default: active model)")
     
@@ -65,7 +66,9 @@ def main():
     start_time = datetime.now()
     try:
         job_func = JOBS_MAP[job_name]
-        if "force" in inspect.signature(job_func).parameters:
+        if "refresh" in inspect.signature(job_func).parameters:
+            result_details = job_func(portfolio_code=portfolio_code, refresh=args.refresh)
+        elif "force" in inspect.signature(job_func).parameters:
             result_details = job_func(portfolio_code=portfolio_code, force=args.force)
         elif "days" in inspect.signature(job_func).parameters:
             result_details = job_func(portfolio_code=portfolio_code, days=args.days)

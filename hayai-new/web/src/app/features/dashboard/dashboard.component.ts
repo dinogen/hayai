@@ -45,13 +45,24 @@ import { RouterLink } from '@angular/router';
         </article>
 
         <article class="hud-card" style="margin-bottom: 0;">
-          <div style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;">Ultimo Job Notturno</div>
-          <div class="font-display" style="font-size: 1.25rem; font-weight: 700; color: #0f172a; margin-top: 0.5rem;">
-            {{ lastJobName() || 'Nessun job eseguito' }}
-          </div>
-          <p style="font-family: 'JetBrains Mono'; font-size: 0.75rem; font-weight: 600; color: #16a34a; margin-top: 0.5rem;" *ngIf="lastJobStatus()">
-            STATO: {{ lastJobStatus() | uppercase }}
-          </p>
+          <div style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;">Ultimi Job Notturni</div>
+          <ng-container *ngIf="recentJobs().length > 0; else noJobs">
+            <div class="font-display" style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin-top: 0.5rem;">
+              Ultima esecuzione: {{ recentJobs()[0].finished_at }}
+            </div>
+            <ul style="list-style: none; margin: 0.75rem 0 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem;">
+              <li *ngFor="let job of recentJobs()" style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem;">
+                <span style="color: #0f172a;">{{ job.job_name }}</span>
+                <span style="display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
+                  <span style="color: #64748b;">{{ job.finished_at }}</span>
+                  <span [style.background]="jobStatusColor(job.status)" style="color: #fff; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.65rem; font-weight: 700;">{{ job.status | uppercase }}</span>
+                </span>
+              </li>
+            </ul>
+          </ng-container>
+          <ng-template #noJobs>
+            <div class="font-display" style="font-size: 1.25rem; font-weight: 700; color: #0f172a; margin-top: 0.5rem;">Nessun job eseguito</div>
+          </ng-template>
         </article>
       </div>
 
@@ -81,8 +92,7 @@ import { RouterLink } from '@angular/router';
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   instrumentsCount = signal(0);
-  lastJobName = signal('');
-  lastJobStatus = signal('');
+  recentJobs = signal<any[]>([]);
   markets = signal<any[]>([]);
   private pollTimer: any;
 
@@ -98,11 +108,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.api.getHealth().subscribe({
       next: (res) => {
-        if (res.recent_jobs && res.recent_jobs.length > 0) {
-          const latest = res.recent_jobs[0];
-          this.lastJobName.set(latest.job_name);
-          this.lastJobStatus.set(latest.status);
-        }
+        this.recentJobs.set(res.recent_jobs || []);
       },
       error: (err) => console.error(err)
     });
@@ -122,5 +128,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
       next: (res) => this.markets.set(res.markets || []),
       error: (err) => console.error(err)
     });
+  }
+
+  jobStatusColor(status: string): string {
+    switch (status) {
+      case 'success': return '#16a34a';
+      case 'failed': return '#dc2626';
+      case 'running': return '#2563eb';
+      case 'partial': return '#d97706';
+      default: return '#64748b';
+    }
   }
 }
