@@ -62,6 +62,11 @@ Per permettere alla webapp di mostrare ogni giorno la composizione e il valore d
 
 Quando il martedì decidi di seguire le raccomandazioni del sistema e compri/vendi con il promotore, registri l'operazione nella pagina **"Portafoglio Attuale"** (apertura/chiusura/modifica posizioni, o il pulsante "Applica Raccomandazioni del Modello" per allineare alla target alla lettera). Ogni operazione viene salvata in `portfolio_trade` e il cash ricalcolato; da quel momento in poi, la webapp calcola automaticamente il **Mark-to-Market giornaliero** senza alterare le posizioni manuali.
 
+> **Allineamento automatico settimanale**: il job batch `align` (martedì alle 15:20, vedi
+> `07-operativita-batch.md`) esegue automaticamente questo allineamento alle raccomandazioni,
+> rispettando la soglia di tolleranza `rebalance_threshold_eur` e la guardia anti-stale. Resta
+> comunque possibile l'allineamento manuale dalla pagina "Portafoglio Attuale".
+
 > **Regola short interi**: le posizioni short sono sempre espresse in **quote intere**
 > (arrotondamento aritmetico half-up, `floor(x + 0.5)`), sia nelle raccomandazioni sia
 > nel portafoglio attuale. Se la quantità short arrotondata è **0**, la posizione si

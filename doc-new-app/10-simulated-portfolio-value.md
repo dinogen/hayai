@@ -40,13 +40,19 @@ Questo documento definisce il piano per aggiungere:
 - **NAV (Valore del Portafoglio)**: `NAV = cash_balance + Σ market_value`.
 - **P&L posizione**: `qty × (close − avg_price)` (corretto sia per long che per short).
 
-### 2.1 Applicazione delle raccomandazioni (manuale)
-Il job notturno **non allinea più** le posizioni al modello. L'allineamento avviene
-solo quando l'utente preme **"Applica Raccomandazioni del Modello"** nella pagina
-"Portafoglio Attuale": il sistema genera i trade necessari per portare le posizioni
-alla composizione target (`qty = target_qty`, side del modello), chiudendo tutto ciò
-che non è in target. I rebalance **non sono retroattivi**: la serie storica NAV è
-"come riportata" giorno per giorno.
+### 2.1 Applicazione delle raccomandazioni
+Il job notturno **non allinea** le posizioni al modello: fa solo mark-to-market. L'allineamento
+avviene in due modi:
+- **Manuale**: pulsante **"Applica Raccomandazioni del Modello"** nella pagina "Portafoglio Attuale"
+  (o l'editor posizioni + SALVA): il sistema genera i trade necessari per portare le posizioni alla
+  composizione target (`qty = target_qty`, side del modello), chiudendo tutto ciò che non è in target.
+- **Automatico settimanale**: job batch **`align`**, schedulato **il martedì alle 15:20** (vedi
+  `07-operativita-batch.md`), che allinea il portafoglio alle ultime raccomandazioni rispettando la
+  soglia di tolleranza `rebalance_threshold_eur` (le variazioni same-direction sotto soglia restano
+  invariate) e la guardia anti-stale (skip se la `rec_date` è più vecchia di 4 giorni).
+
+I rebalance **non sono retroattivi**: la serie storica NAV è "come riportata" giorno per giorno.
+La logica di generazione trade è condivisa (`app/portfolio_rebalance.py`).
 
 ### 2.2 Baseline P&L
 - **P&L vs Mese**: confronto con lo snapshot NAV di ~30 giorni prima (o `initial_capital` se l'esperimento è più giovane).

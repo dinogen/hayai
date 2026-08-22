@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from datetime import date, datetime
 from app.db import execute_query, get_db_connection
 from app.math_utils import round_short_qty
+from app.portfolio_rebalance import build_trades, apply_trades
 
 router = APIRouter()
 
@@ -332,103 +333,26 @@ def save_holdings(code: str, payload: HoldingsSaveRequest):
 
     close_map = _latest_close_map()
 
-    # Pre-existing cash effect from the trade log (committed data).
-    sum_rows = execute_query("""
-        SELECT COALESCE(SUM(amount), 0) AS total FROM portfolio_trade WHERE portfolio_id = %s
-    """, (portfolio_id,))
-    cash_from_log = float(sum_rows[0]['total'])
+    # Build the trades to move the current positions towards the target and apply
+    # them atomically (shared logic used also by the weekly 'align' batch job).
+    trades, desired, snapshot_avg = build_trades(current, target, close_map, threshold_eur=None)
 
     trade_date = date.today().isoformat()
 
-    def _close_price(inst_id: int, fallback: float) -> float:
-        return close_map.get(inst_id, fallback)
-
-    def _amount(side: str, qty: float, price: float) -> float:
-        # buy / cover consume cash (negative), sell / short generate proceeds (positive).
-        return round(qty * price, 2) if side in ('sell', 'short') else round(-qty * price, 2)
-
-    trades = []
-    all_ids = set(current.keys()) | set(target.keys())
-
-    for inst_id in all_ids:
-        cur_signed = current.get(inst_id, {}).get('qty', 0.0)
-        cur_avg = current.get(inst_id, {}).get('avg_price')
-        t = target.get(inst_id)
-        tgt_signed = t['qty'] if t and t['side'] == 'long' else (-t['qty'] if t else 0.0)
-
-        if cur_signed == tgt_signed:
-            continue
-
-        close = _close_price(inst_id, cur_avg or 0.0)
-
-        # Full close of an existing position (opposite sign or target zero).
-        if cur_signed != 0 and (tgt_signed == 0 or (cur_signed > 0) != (tgt_signed > 0)):
-            side = 'sell' if cur_signed > 0 else 'cover'
-            qty = abs(cur_signed)
-            trades.append((inst_id, side, qty, round(close, 6), _amount(side, qty, close)))
-
-        # Open / increase / reduce.
-        if tgt_signed != 0:
-            same_direction = cur_signed != 0 and (cur_signed > 0) == (tgt_signed > 0)
-            open_qty = abs(tgt_signed) if not same_direction else abs(tgt_signed - cur_signed)
-            if open_qty > 0:
-                side = 'buy' if tgt_signed > 0 else 'short'
-                price = (t['avg_price'] if t and t['avg_price'] and t['avg_price'] > 0 else close)
-                trades.append((inst_id, side, open_qty, round(float(price), 6), _amount(side, open_qty, float(price))))
-
-    # Recompute cash from initial capital + full trade log.
-    cash_total = initial_capital + cash_from_log + sum(a for (_, _, _, _, a) in trades)
-
-    upsert_pos = """
-        INSERT INTO portfolio_position (portfolio_id, instrument_id, pos_date, qty, avg_price, market_value)
-        VALUES (%s, %s, %s, %s, %s, %s)
-        ON DUPLICATE KEY UPDATE
-            qty = VALUES(qty),
-            avg_price = VALUES(avg_price),
-            market_value = VALUES(market_value)
-    """
-
-    with get_db_connection() as conn:
+    with get_db_connection(autocommit=False) as conn:
         with conn.cursor() as cursor:
-            for inst_id, side, qty, price, amount in trades:
-                cursor.execute("""
-                    INSERT INTO portfolio_trade (portfolio_id, instrument_id, trade_date, side, qty, price, amount)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """, (portfolio_id, inst_id, trade_date, side, qty, price, amount))
-
-            # Snapshot of open target positions.
-            for inst_id, t in target.items():
-                qty_signed = t['qty'] if t['side'] == 'long' else -t['qty']
-                avg_price = float(t['avg_price']) if t['avg_price'] and t['avg_price'] > 0 else close_map.get(inst_id, 0.0)
-                close = close_map.get(inst_id, avg_price)
-                market_value = round(qty_signed * close, 2)
-                cursor.execute(upsert_pos, (portfolio_id, inst_id, trade_date, qty_signed, round(avg_price, 6), market_value))
-
-            # Closed positions get a qty=0 snapshot so the latest state reflects the closure.
-            for inst_id in current.keys():
-                if inst_id not in target:
-                    cursor.execute(upsert_pos, (portfolio_id, inst_id, trade_date, 0, 0, 0))
-
-            cursor.execute("""
-                INSERT INTO portfolio_cash (portfolio_id, cash_date, balance)
-                VALUES (%s, %s, %s)
-                ON DUPLICATE KEY UPDATE balance = VALUES(balance)
-            """, (portfolio_id, trade_date, round(cash_total, 2)))
-
-    positions_value = 0.0
-    for inst_id, t in target.items():
-        qty_signed = t['qty'] if t['side'] == 'long' else -t['qty']
-        close = close_map.get(inst_id, 0.0)
-        positions_value += qty_signed * close
-    nav = round(cash_total + positions_value, 2)
+            summary = apply_trades(
+                conn, cursor, portfolio_id, trade_date, trades, desired, current,
+                initial_capital, close_map, snapshot_avg=snapshot_avg,
+            )
 
     return {
         "portfolio_code": code,
         "as_of_date": trade_date,
-        "nav": nav,
-        "cash_balance": round(cash_total, 2),
-        "positions_value": round(positions_value, 2),
-        "positions_saved": len(target),
-        "trades_executed": len(trades),
+        "nav": summary["nav"],
+        "cash_balance": summary["cash_balance"],
+        "positions_value": summary["positions_value"],
+        "positions_saved": len(desired),
+        "trades_executed": summary["trades_executed"],
         "message": "Holdings saved successfully.",
     }

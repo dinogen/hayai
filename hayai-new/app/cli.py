@@ -17,6 +17,8 @@ from app.jobs.signal import run_signal_job
 from app.jobs.recommend import run_recommend_job
 from app.jobs.nav import run_nav_job
 from app.jobs.summaries import run_summaries_job
+from app.jobs.align import run_align_job
+from app.portfolio_rebalance import DEFAULT_STALE_DAYS
 
 logger = setup_logger("app.cli")
 
@@ -33,6 +35,7 @@ JOBS_MAP = {
     "recommend": run_recommend_job,
     "nav": run_nav_job,
     "summaries": run_summaries_job,
+    "align": run_align_job,
 }
 
 def log_job_start(job_name: str) -> int:
@@ -53,7 +56,7 @@ def main():
     parser.add_argument("--portfolio", type=str, default="main", help="Portfolio code (default: main)")
     parser.add_argument("--force", action="store_true", help="Force refresh even if metadata is fresh")
     parser.add_argument("--refresh", action="store_true", help="Bypass the price cache and download fresh data (data job)")
-    parser.add_argument("--days", type=int, default=14, help="Retention days for cleanup job (default: 14)")
+    parser.add_argument("--days", type=int, default=None, help="Retention days for cleanup or stale days for align (job-specific defaults apply)")
     parser.add_argument("--version", type=str, default=None, help="Model version for verify/backtest (default: active model)")
     
     args = parser.parse_args()
@@ -66,12 +69,18 @@ def main():
     start_time = datetime.now()
     try:
         job_func = JOBS_MAP[job_name]
-        if "refresh" in inspect.signature(job_func).parameters:
+        if job_name == "align":
+            result_details = run_align_job(
+                portfolio_code=portfolio_code,
+                days=args.days if args.days is not None else DEFAULT_STALE_DAYS,
+                force=args.force,
+            )
+        elif "refresh" in inspect.signature(job_func).parameters:
             result_details = job_func(portfolio_code=portfolio_code, refresh=args.refresh)
         elif "force" in inspect.signature(job_func).parameters:
             result_details = job_func(portfolio_code=portfolio_code, force=args.force)
         elif "days" in inspect.signature(job_func).parameters:
-            result_details = job_func(portfolio_code=portfolio_code, days=args.days)
+            result_details = job_func(portfolio_code=portfolio_code, days=args.days if args.days is not None else 14)
         elif "model_version" in inspect.signature(job_func).parameters:
             result_details = job_func(portfolio_code=portfolio_code, model_version=args.version)
         else:

@@ -25,6 +25,21 @@ python -m app.cli <job_name> [--portfolio <code>]
 9. **`summaries`**: Compila il riassunto in Markdown per portafoglio e lo salva in `news_summary`.
 10. **`cleanup`**: Elimina le notizie (e relative `news_sentiment` in cascata) più vecchie di 14 giorni e i file cache parquet scaduti in `tmp/`. Il periodo di retention è configurabile con `--days` (default 14).
 
+### Job Settimanale (fuori dal ciclo notturno)
+11. **`align`**: **Allineamento del portafoglio alle raccomandazioni**, schedulato **una volta a
+    settimana, il martedì alle 15:20** (dopo il refresh prezzi intraday delle 15:00, così i trade
+    usano prezzi freschi). NON fa parte del ciclo giornaliero.
+    - Legge l'ultima `rec_date` da `portfolio_recommendation` e genera i trade necessari per portare
+      le posizioni attuali alla composizione target (chiusura posizioni fuori target, apertura/
+      incremento/riduzione long e short), registrandoli in `portfolio_trade` e aggiornando
+      `portfolio_position` e `portfolio_cash`.
+    - **Soglia di tolleranza**: rispetta `rebalance_threshold_eur` (default €50): le variazioni
+      same-direction sotto soglia restano invariate (hold), evitando micro-operazioni. Aperture e
+      chiusure vengono sempre eseguite.
+    - **Guardia anti-stale**: se l'ultima `rec_date` è più vecchia di 4 giorni (default, `--days`)
+      il job si ferma con stato `skipped` senza operare; si forza con `--force`.
+    - La logica di trade è condivisa con l'endpoint `holdings/save` (`app/portfolio_rebalance.py`).
+
 ### Job di Verifica (manuale)
 - **`verify`**: Valuta il modello ML deployato sul dataset attuale (assenza di null/NaN, split 80/20,
   metriche RMSE/MAE/R²/hit-rate, spot check di 100 righe) e produce un report in
@@ -101,6 +116,12 @@ Crontab dell'utente di sistema (`dinogen`) sul Raspberry Pi per l'esecuzione aut
 
 # Mark-to-market intraday: rivaluta il NAV coi prezzi aggiornati subito dopo il refresh
 5  15-21 * * 1-5   cd /opt/hayai/hayai-new && /opt/hayai/venv/bin/python -m app.cli nav >> logs/cron.log 2>&1
+
+# Allineamento settimanale del portafoglio alle raccomandazioni (martedì, NON parte
+# del ciclo giornaliero). Schedulato dopo il refresh intraday delle 15:00 (minuto 20)
+# per eseguire i trade ai prezzi appena rinfrescati. Rispetta rebalance_threshold_eur
+# e salta raccomandazioni stale (> 4 giorni) a meno di --force.
+20 15 * * 2      cd /opt/hayai/hayai-new && /opt/hayai/venv/bin/python -m app.cli align >> logs/cron.log 2>&1
 ```
 
 ---
