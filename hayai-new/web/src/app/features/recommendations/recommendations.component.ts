@@ -22,8 +22,14 @@ import { ApiService } from '../../core/services/api.service';
               <strong style="color: #0f172a; font-size: 1.05rem;">{{ navValue() !== null ? ('€' + (navValue() | number:'1.2-2')) : 'N/D' }}</strong>
             </div>
             <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
-              <div style="color: #94a3b8;">TARGET RACCOMANDATO</div>
-              <strong style="color: #4d7c0f; font-size: 1.05rem;">€{{ totalRecommended() | number:'1.2-2' }}</strong>
+              <div style="color: #94a3b8;">TARGET LONG</div>
+              <strong style="color: #4d7c0f; font-size: 1.05rem;">€{{ longTarget() | number:'1.2-2' }}</strong>
+              <div style="font-size: 0.7rem; color: #64748b;">{{ longCount() }} posizioni</div>
+            </div>
+            <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
+              <div style="color: #94a3b8;">TARGET SHORT</div>
+              <strong style="color: #b91c1c; font-size: 1.05rem;">€{{ shortTarget() | number:'1.2-2' }}</strong>
+              <div style="font-size: 0.7rem; color: #64748b;">{{ shortCount() }} posizioni</div>
             </div>
             <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
               <div style="color: #94a3b8;">SCOSTAMENTO (NAV-TARGET)</div>
@@ -168,7 +174,12 @@ export class RecommendationsComponent implements OnInit {
   pnlInit = computed(() => this.value()?.pnl_vs_initial ?? null);
   pnlInitPct = computed(() => this.value()?.pnl_vs_initial_pct ?? null);
 
-  totalRecommended = computed(() => this.items().reduce((acc, item) => acc + (Number(item.target_amount) || 0), 0));
+  longTarget = computed(() => this.items().filter((i) => i.side === 'long').reduce((s, i) => s + (Number(i.target_amount) || 0), 0));
+  shortTarget = computed(() => this.items().filter((i) => i.side === 'short').reduce((s, i) => s + (Number(i.target_amount) || 0), 0));
+  longCount = computed(() => this.items().filter((i) => i.side === 'long').length);
+  shortCount = computed(() => this.items().filter((i) => i.side === 'short').length);
+
+  totalRecommended = computed(() => this.longTarget() + this.shortTarget());
   navDelta = computed(() => {
     const nav = this.navValue();
     const target = this.totalRecommended();

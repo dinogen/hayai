@@ -114,6 +114,11 @@ La schermata chiave della webapp è la pagina di **Composizione Consigliata** (`
 
 Ogni asset raccomandato è presentato sotto forma di **Scheda Tesi di Investimento (Investment Thesis Card)**:
 
+L'header della pagina include anche i riquadri **TARGET LONG** e **TARGET SHORT** (verde/rosso),
+calcolati **client-side in TypeScript** (`computed`) come somma dei `target_amount` degli items
+per lato, con il conteggio delle posizioni; il riquadro **SCOSTAMENTO (NAV−TARGET)** resta sul
+totale dei due lati. I valori sono sempre coerenti con le card sottostanti.
+
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │ AAPL — Apple Inc. [ LONG ]                              Weight: 15.4%  │
@@ -132,7 +137,7 @@ Ogni asset raccomandato è presentato sotto forma di **Scheda Tesi di Investimen
 
 ### 2.3 Altre Viste della SPA
 1. **Dashboard (`/`)**: Panoramica di tutti i portafogli, stato dei job notturni (successo/fallimento), data dell'ultimo aggiornamento dati e box **"Mercati Aperti / Chiusi"** (USA, Europe, Asia) con pallino verde/rosso, ora locale e orari di borsa; lo stato è ricalcolato dal backend (`GET /api/markets/status`) e il frontend lo aggiorna ogni 60s.
-2. **Portafoglio Attuale (`/portfolio`)**: Vista e **modifica manuale** delle posizioni effettivamente detenute (long/short). Tabella editor con `qty` e `avg_price` modificabili, toggle side, chiusura posizione e apertura di nuove posizioni dalla watchlist. Pulsante **"Applica Raccomandazioni del Modello"** (popola l'editor con la composizione target alla lettera) e pulsante **"SALVA"** che persiste via `POST /holdings/save`. Short rappresentato con `qty` negativa; P&L posizione = `qty × (close − avg_price)`.
+2. **Portafoglio Attuale (`/portfolio`)**: Vista e **modifica manuale** delle posizioni effettivamente detenute (long/short). Tabella editor con `qty` e `avg_price` modificabili, toggle side, chiusura posizione e apertura di nuove posizioni dalla watchlist. Pulsante **"Applica Raccomandazioni del Modello"** (popola l'editor con la composizione target alla lettera) e pulsante **"SALVA"** che persiste via `POST /holdings/save`. Short rappresentato con `qty` negativa; P&L posizione = `qty × (close − avg_price)`. L'header mostra riquadri **LONG/SHORT** con **esposizione + P&L per lato** e il **NAV di anteprima client-side** (`cash salvato + valore long − valore short`, con badge "ANTEPRIMA" e delta quando la tabella è modificata ma non salvata): tutti i valori derivano dalle righe dell'editor e si aggiornano live durante la modifica.
 3. **Tabella Segnali (`/portfolios/:code/signals`)**: Elenco completo di tutti gli strumenti del portafoglio con il dettaglio di come il punteggio matematico è stato corretto dal sentiment dell'IA. Ogni riga è espandibile e mostra il **dettaglio per-notizia** (`impact_score`, durata, confidenza, età, decay, contributo) che ha generato il modificatore.
 4. **Watchlist (`/watchlist`)**: Tabella dell'intero universo con area geografica (badge colorato USA/EU/Asia/Emerging/Altro), ultimo segnale del modello (`quant_score`), ultimo coefficiente dalle news (`llm_sentiment_modifier`), segnale ibrido finale (`final_signal`), **volatilità a 20 giorni** (`vol_20`, colorata per livello di rischio: verde < 1.5%, giallo < 3%, rosso oltre) e prezzo corrente. Strumenti senza segnale mostrano `N/D` grigio. Riga es. bond yield `^TNX`: area, prezzo, `N/D` sui segnali. Ogni riga è **cliccabile** e apre il dettaglio strumento.
 5. **Dettaglio Strumento (`/watchlist/:symbol`)**: Pagina raggiungibile cliccando una riga della Watchlist. Header con simbolo, nome, tipo, badge area, settore, paese, prezzo corrente e variazione % giorno. KPI box quantitativi (Quant Score, Sentiment Mod, Segnale Finale, Vol 20). **Candlestick chart** (libreria `lightweight-charts`) con istogramma volume, overlay MA20/MA50 e selettore periodo 3M/6M/1Y. Lista delle ultime 10 notizie dello strumento con badge `impact_score`, cliccabili verso il dettaglio notizia.

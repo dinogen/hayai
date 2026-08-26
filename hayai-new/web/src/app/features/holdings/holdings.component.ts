@@ -36,8 +36,15 @@ interface NewForm {
           </div>
           <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: stretch;">
             <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
-              <div style="color: #94a3b8;">VALORE PORTAFOGLIO OGGI</div>
-              <strong style="color: #0f172a; font-size: 1.05rem;">€{{ (data()?.nav ?? 0) | number:'1.2-2' }}</strong>
+              <div style="color: #94a3b8;">
+                VALORE PORTAFOGLIO OGGI
+                <span *ngIf="navDirty()" style="color: #d97706; font-weight: bold; font-size: 0.65rem;"> · ANTEPRIMA</span>
+              </div>
+              <strong style="color: #0f172a; font-size: 1.05rem;">€{{ navPreview() | number:'1.2-2' }}</strong>
+              <div style="font-size: 0.65rem; color: #64748b;">
+                salvato €{{ (data()?.nav ?? 0) | number:'1.2-2' }}
+                <span *ngIf="navDirty()" [style.color]="navDeltaVsSaved() >= 0 ? '#16a34a' : '#dc2626'">{{ formatPnl(navDeltaVsSaved()) }}</span>
+              </div>
             </div>
             <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
               <div style="color: #94a3b8;">LIQUIDITÀ (CASH)</div>
@@ -46,10 +53,12 @@ interface NewForm {
             <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
               <div style="color: #94a3b8;">LONG</div>
               <strong style="color: #4d7c0f; font-size: 1.05rem;">€{{ longValue() | number:'1.2-2' }}</strong>
+              <div style="font-size: 0.7rem;" [style.color]="longPnl() >= 0 ? '#16a34a' : '#dc2626'">{{ formatPnl(longPnl()) }}</div>
             </div>
             <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
               <div style="color: #94a3b8;">SHORT</div>
               <strong style="color: #b91c1c; font-size: 1.05rem;">€{{ shortValue() | number:'1.2-2' }}</strong>
+              <div style="font-size: 0.7rem;" [style.color]="shortPnl() >= 0 ? '#16a34a' : '#dc2626'">{{ formatPnl(shortPnl()) }}</div>
             </div>
             <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
               <div style="color: #94a3b8;">P&L NON REALIZZATO</div>
@@ -246,6 +255,31 @@ export class HoldingsComponent implements OnInit {
         .filter((r) => r.side === 'short')
         .reduce((s, r) => s + this.marketValue(r), 0)
     );
+  }
+
+  longPnl(): number {
+    return this.rows()
+      .filter((r) => r.side === 'long')
+      .reduce((s, r) => s + this.pnl(r), 0);
+  }
+
+  shortPnl(): number {
+    return this.rows()
+      .filter((r) => r.side === 'short')
+      .reduce((s, r) => s + this.pnl(r), 0);
+  }
+
+  navPreview(): number {
+    const cash = this.data()?.cash_balance ?? 0;
+    return cash + this.longValue() - this.shortValue();
+  }
+
+  navDeltaVsSaved(): number {
+    return this.navPreview() - (this.data()?.nav ?? 0);
+  }
+
+  navDirty(): boolean {
+    return Math.abs(this.navDeltaVsSaved()) > 0.005;
   }
 
   pnlTotal(): number {

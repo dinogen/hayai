@@ -107,31 +107,41 @@ In `api/routers/portfolios.py`, nuovo endpoint read-only che ritorna:
 
 ---
 
-## 5. Frontend — Tre Riquadri nell'Header Recommendations
+## 5. Frontend — Riquadri HUD negli Header
 
 ### 5.1 `web/src/app/core/services/api.service.ts`
-Aggiungere:
-
-```ts
-getPortfolioValue(code: string): Observable<any> {
-  return this.http.get(`${this.baseUrl}/portfolios/${code}/value`);
-}
-```
+- `getPortfolioValue(code)` → `GET /api/portfolios/{code}/value` (già presente).
 
 ### 5.2 `web/src/app/features/recommendations/recommendations.component.ts`
-- Nuovo `signal` per i dati `value`.
-- In `ngOnInit`, chiamata a `getPortfolioValue('main')` in parallelo alle raccomandazioni.
-- Nell'header HUD, accanto al riquadro esistente `EQUITY INVESTIBILE (90%)` (stesso stile:
-  `background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font: JetBrains Mono 0.75rem`),
-  tre riquadri affiancati in un contenitore `display: flex; gap: 0.75rem; flex-wrap: wrap`:
+Header della **Composizione Consigliata** con riquadri (stile:
+`background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font: JetBrains Mono 0.75rem`):
 
-| Riquadro | Etichetta | Contenuto | Colore |
+| Riquadro | Etichetta | Contenuto | Calcolo |
 |---|---|---|---|
-| R1 | VALORE PORTAFOGLIO OGGI | `€{{ nav }}` | testo scuro `#0f172a` |
-| R2 | P&L vs MESE SCORSO | `±€X (±X%)` | verde `#16a34a` / rosso `#dc2626` |
-| R3 | P&L DA INIZIO (vs €5.000) | `±€X (±X%)` | verde `#16a34a` / rosso `#dc2626` |
+| R1 | VALORE PORTAFOGLIO OGGI | `€{{ nav }}` | backend `/value` |
+| R2 | TARGET LONG | `€{{ longTarget }}` · `N posizioni` | **TS**: Σ `target_amount` degli items con `side=long` |
+| R3 | TARGET SHORT | `€{{ shortTarget }}` · `N posizioni` | **TS**: Σ `target_amount` degli items con `side=short` |
+| R4 | SCOSTAMENTO (NAV−TARGET) | `±€X` (verde/rosso) | **TS**: `nav − (longTarget + shortTarget)` |
+| R5 | P&L DA INIZIO (vs €5.000) | `±€X (±X%)` | backend `/value` |
 
-- **Stato vuoto**: se il job `nav` non è mai girato → mostrare `N/D` per tutti i riquadri.
+- I riquadri R2/R3 sono calcolati **client-side in TypeScript** (`computed` dagli `items()`)
+  e sono quindi sempre coerenti con le card sottostanti.
+- **Stato vuoto**: se il job `nav` non è mai girato → `N/D` su R1/R5.
+
+### 5.3 `web/src/app/features/holdings/holdings.component.ts` (pagina "Portafoglio Attuale")
+Header con riquadri calcolati **client-side in TypeScript** dalle righe dell'editor `rows()`
+(sempre sincronizzati con la tabella):
+
+| Riquadro | Etichetta | Contenuto | Calcolo |
+|---|---|---|---|
+| H1 | VALORE PORTAFOGLIO OGGI | `€{{ navPreview }}` + badge **ANTEPRIMA** | **TS**: `cash salvato + longValue − shortValue`; se diverso dal NAV salvato mostra badge e delta `salvato €X (Δ)` |
+| H2 | LIQUIDITÀ (CASH) | `€{{ cash_balance }}` | backend `/holdings` (cambia solo al salvataggio) |
+| H3 | LONG | `€{{ longValue }}` + P&L long | **TS**: Σ valore di mercato e Σ P&L delle righe long |
+| H4 | SHORT | `€{{ shortValue }}` + P&L short | **TS**: Σ valore di mercato (assoluto) e Σ P&L delle righe short |
+| H5 | P&L NON REALIZZATO | `±€X` (verde/rosso) | **TS**: Σ P&L di tutte le righe |
+
+- `navPreview` replica la matematica del backend (`nav = cash + Σ market_value`): a pagina
+  caricata coincide col NAV salvato; editando qty/prezzo si aggiorna live e appare "ANTEPRIMA".
 
 ---
 
