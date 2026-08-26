@@ -127,7 +127,7 @@ interface NewForm {
                   </button>
                 </td>
                 <td style="text-align: right;">
-                  <input type="number" [step]="row.side === 'short' ? '1' : '0.0001'" min="0" [value]="row.qty" (input)="onQtyChange(row, $any($event.target).value)"
+                  <input type="number" step="1" min="0" [value]="row.qty" (input)="onQtyChange(row, $any($event.target).value)"
                          style="width: 90px; font-family: 'JetBrains Mono'; font-size: 0.85rem; color: #0f172a; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 0.35rem 0.5rem; text-align: right;">
                 </td>
                 <td style="text-align: right;">
@@ -173,7 +173,7 @@ interface NewForm {
           </div>
           <div>
             <label style="font-family: 'JetBrains Mono'; font-size: 0.72rem; color: #64748b; display: block; margin-bottom: 0.35rem;">QTY</label>
-            <input type="number" [step]="newForm().side === 'short' ? '1' : '0.0001'" min="0" [value]="newForm().qty" (input)="onNewQtyChange($any($event.target).value)"
+            <input type="number" step="1" min="0" [value]="newForm().qty" (input)="onNewQtyChange($any($event.target).value)"
                    style="width: 100px; font-family: 'JetBrains Mono'; font-size: 0.9rem; color: #0f172a; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 0.55rem 0.6rem;">
           </div>
           <div>

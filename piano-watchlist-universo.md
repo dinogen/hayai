@@ -15,7 +15,7 @@ aggiunta/rimozione di ticker, con le aggiunte scelte da un elenco universo
 ---
 
 ## Task 1: Seed universo candidati (batch job `universe`)
-- **Stato**: todo
+- **Stato**: done
 - **Scopo**: popolare `instrument` con i ~100 simboli di training (da
   `train_universe_pipeline.py` `UNIVERSE_SYMBOLS`) **senza** linkarli al
   portafoglio, così il picker della UI ha candidati reali da cui scegliere.
@@ -35,7 +35,7 @@ aggiunta/rimozione di ticker, con le aggiunte scelte da un elenco universo
         inserire più in `portfolio_instrument`
 
 ## Task 2: Endpoint API backend (universo + add/remove watchlist)
-- **Stato**: todo
+- **Stato**: done
 - **Scopo**: esporre i candidati universo e consentire link/unlink da/to
   watchlist; esporre `has_open_position` per disabilitare "Rimuovi" nell'UI.
 - **Risultato atteso**: in `api/routers/holdings.py`:
@@ -49,13 +49,13 @@ aggiunta/rimozione di ticker, con le aggiunte scelte da un elenco universo
 - **Test**: smoke test via uvicorn/curl: lista universo, aggiunta, doppia
   aggiunta (no-op), rimozione con/senza posizione aperta.
 - **Todolist**:
-  - [ ] Aggiungere `GET /universe` riusando il pattern di `_watchlist_rows`
-  - [ ] Aggiungere `POST /watchlist` con validazione strumento esistente/attivo
-  - [ ] Aggiungere `DELETE /watchlist/{instrument_id}` con guardia posizione aperta
-  - [ ] Aggiungere `has_open_position` a `_serialize_watchlist_row`
+  - [x] Aggiungere `GET /universe` riusando il pattern di `_watchlist_rows`
+  - [x] Aggiungere `POST /watchlist` con validazione strumento esistente/attivo
+  - [x] Aggiungere `DELETE /watchlist/{instrument_id}` con guardia posizione aperta
+  - [x] Aggiungere `has_open_position` a `_serialize_watchlist_row`
 
 ## Task 3: Frontend Angular — pagina Watchlist gestibile
-- **Stato**: todo
+- **Stato**: done
 - **Scopo**: aggiungere/togliere ticker dalla pagina Watchlist; bottone
   "Rimuovi" disabilitato per righe con posizione aperta.
 - **Risultato atteso**: in `watchlist.component.ts` (pattern signal): barra
@@ -65,17 +65,34 @@ aggiunta/rimozione di ticker, con le aggiunte scelte da un elenco universo
   `addToWatchlist()`, `removeFromWatchlist()`.
 - **Test**: build dev (`npm run build`); flussi aggiunta/rimozione/blocco.
 - **Todolist**:
-  - [ ] Aggiungere metodi in `api.service.ts`
-  - [ ] Caricare universo e gestire picker di aggiunta
-  - [ ] Colonna azione "Rimuovi" con `[disabled]="w.has_open_position"` e tooltip
-  - [ ] Verifica build: `npm run build`
+  - [x] Aggiungere metodi in `api.service.ts`
+  - [x] Caricare universo e gestire picker di aggiunta
+  - [x] Colonna azione "Rimuovi" con `[disabled]="w.has_open_position"` e tooltip
+  - [x] Verifica build: `npm run build`
 
 ## Task 4: Aggiornamento documentazione
-- **Stato**: todo
+- **Stato**: done
 - **Scopo**: documentare il nuovo flusso universo→watchlist.
 - **Risultato atteso**: aggiornati `doc-new-app/06-api-and-webapp.md` (nuovi
   endpoint + sezione UI watchlist) e `doc-new-app/08-portfolio-lifecycle.md` §4.
 - **Test**: coerenza con gli altri doc.
 - **Todolist**:
-  - [ ] Aggiornare tabella endpoint e sezione Watchlist in `06-api-and-webapp.md`
-  - [ ] Aggiornare §4 in `08-portfolio-lifecycle.md`
+  - [x] Aggiornare tabella endpoint e sezione Watchlist in `06-api-and-webapp.md`
+  - [x] Aggiornare §4 in `08-portfolio-lifecycle.md` (e job `universe` in `07-operativita-batch.md`)
+
+## Task 5: Aggiunta nuovo simbolo all'universo (niente pagina extra)
+- **Stato**: done
+- **Scopo**: permettere di ampliare l'universo digitando un ticker nuovo
+  direttamente dalla pagina Watchlist, senza una pagina dedicata.
+- **Risultato atteso**: endpoint `POST /api/portfolios/{code}/universe`
+  (`{"symbol": ...}`) che inserisce/riattiva lo strumento in `instrument`
+  (metadata best-effort da yfinance, mai linkato), 409 se già in watchlist,
+  422 se vuoto. Nella pagina Watchlist un campo "NUOVO SIMBOLO" con pulsante
+  "+ Aggiungi all'universo": dopo l'aggiunta l'elemento viene auto-selezionato
+  nel picker candidati. API e UI testate; build Angular OK.
+- **Todolist**:
+  - [x] Endpoint `POST /universe` in `api/routers/holdings.py`
+  - [x] Metodo `addToUniverse` in `api.service.ts`
+  - [x] Campo "NUOVO SIMBOLO" + handler in `watchlist.component.ts`
+  - [x] Verifiche: add COST, re-add, 409 watchlist, 422 vuoto, cleanup
+  - [x] `npm run build` + aggiornamento `06-api-and-webapp.md` / `08-portfolio-lifecycle.md`

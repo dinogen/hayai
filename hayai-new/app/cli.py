@@ -18,6 +18,7 @@ from app.jobs.recommend import run_recommend_job
 from app.jobs.nav import run_nav_job
 from app.jobs.summaries import run_summaries_job
 from app.jobs.align import run_align_job
+from app.jobs.universe import run_universe_job
 from app.portfolio_rebalance import DEFAULT_STALE_DAYS
 
 logger = setup_logger("app.cli")
@@ -36,6 +37,7 @@ JOBS_MAP = {
     "nav": run_nav_job,
     "summaries": run_summaries_job,
     "align": run_align_job,
+    "universe": run_universe_job,
 }
 
 def log_job_start(job_name: str) -> int:

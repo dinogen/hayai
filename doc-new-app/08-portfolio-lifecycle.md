@@ -76,6 +76,7 @@ Quando il martedì decidi di seguire le raccomandazioni del sistema e compri/ven
 
 ## 4. Aggiornamento Dinamico dell'Universo (Aggiunta/Rimozione Asset)
 
-Nel corso dei mesi, potresti voler aggiungere un nuovo ETF o rimuovere un'azione che non ti interessa più.
-- **Aggiunta**: Inserisci il nuovo simbolo in `instrument` e lo colleghi in `portfolio_instrument`. Dalla notte successiva, il batch scaricherà lo storico e inizierà a valutarlo insieme agli altri.
-- **Rimozione**: Imposti `active = 0` sull'associazione; il sistema chiuderà idealmente la posizione e smetterà di analizzarlo.
+Nel corso dei mesi, potresti voler aggiungere un nuovo ETF o rimuovere un'azione che non ti interessa più. La gestione avviene **dalla pagina Watchlist** della webapp:
+
+- **Aggiunta**: scegli uno strumento dall'**universo dei candidati** (endpoint `GET /api/portfolios/{code}/universe`, popolato dal job batch `universe` con i ~100 simboli di training, **non** linkati al portafoglio) e premi **"+ Aggiungi"**: viene creato il link in `portfolio_instrument` (`POST /api/portfolios/{code}/watchlist`). Dalla notte successiva, il batch scaricherà lo storico e inizierà a valutarlo insieme agli altri. Se il simbolo non è ancora in universo, lo si può aggiungere digitandolo nella pagina Watchlist (`POST /api/portfolios/{code}/universe`): viene inserito in `instrument` (active=1) da yfinance e diventa subito selezionabile come candidato.
+- **Rimozione**: premi **"Rimuovi"** sulla riga (`DELETE /api/portfolios/{code}/watchlist/{instrument_id}`): lo strumento viene **scollegato** dal portafoglio (unlink) e smette di essere processato dal batch notturno, ma **resta nell'universo** (`instrument.active = 1`) e può essere riaggiunto in futuro. Se lo strumento ha una **posizione aperta** (`portfolio_position` con `qty != 0`) la rimozione è **bloccata** (bottone disabilitato nell'UI e 422 dal backend): devi prima chiudere la posizione nella pagina "Portafoglio Attuale".

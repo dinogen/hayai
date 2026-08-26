@@ -40,6 +40,17 @@ python -m app.cli <job_name> [--portfolio <code>]
       il job si ferma con stato `skipped` senza operare; si forza con `--force`.
     - La logica di trade è condivisa con l'endpoint `holdings/save` (`app/portfolio_rebalance.py`).
 
+### Job di Manutenzione (manuale)
+- **`universe`**: Semina/aggiorna l'**universo dei candidati** in `instrument` (~100 simboli di
+  training da `UNIVERSE_SYMBOLS`) **senza** linkarli al portafoglio (`portfolio_instrument` resta
+  invariato). Gli strumenti già presenti vengono saltati (idempotente). Dalla pagina Watchlist della
+  webapp si possono poi aggiungere/rimuovere ticker scegliendoli da questo pool. Da lanciare
+  manualmente quando si vuole ampliare l'universo disponibile:
+  ```bash
+  python -m app.cli universe
+  ```
+  NB: la stessa logica è usata da `train_universe_pipeline.seed_universe()` (training su PC).
+
 ### Job di Verifica (manuale)
 - **`verify`**: Valuta il modello ML deployato sul dataset attuale (assenza di null/NaN, split 80/20,
   metriche RMSE/MAE/R²/hit-rate, spot check di 100 righe) e produce un report in

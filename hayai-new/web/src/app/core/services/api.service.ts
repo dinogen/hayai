@@ -60,6 +60,22 @@ export class ApiService {
     return this.http.get(`${this.baseUrl}/portfolios/${code}/watchlist`);
   }
 
+  getUniverse(code: string): Observable<any> {
+    return this.http.get(`${this.baseUrl}/portfolios/${code}/universe`);
+  }
+
+  addToUniverse(code: string, symbol: string): Observable<any> {
+    return this.http.post(`${this.baseUrl}/portfolios/${code}/universe`, { symbol });
+  }
+
+  addToWatchlist(code: string, instrumentId: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/portfolios/${code}/watchlist`, { instrument_id: instrumentId });
+  }
+
+  removeFromWatchlist(code: string, instrumentId: number): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/portfolios/${code}/watchlist/${instrumentId}`);
+  }
+
   getInstrumentDetail(symbol: string, days?: number): Observable<any> {
     const qs = days ? `?days=${days}` : '';
     return this.http.get(`${this.baseUrl}/instruments/${encodeURIComponent(symbol)}${qs}`);

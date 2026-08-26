@@ -1,9 +1,11 @@
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 from datetime import date, datetime
+import requests
 from app.db import execute_query, get_db_connection
 from app.math_utils import round_short_qty
 from app.portfolio_rebalance import build_trades, apply_trades
+from app.jobs.universe import _fetch_instrument_meta
 
 router = APIRouter()
 
@@ -17,6 +19,14 @@ class PositionTarget(BaseModel):
 
 class HoldingsSaveRequest(BaseModel):
     positions: list[PositionTarget]
+
+
+class WatchlistAddRequest(BaseModel):
+    instrument_id: int
+
+
+class UniverseAddRequest(BaseModel):
+    symbol: str
 
 
 def _portfolio(code: str) -> dict:
@@ -38,14 +48,22 @@ def _active_model_id(portfolio_id: int) -> int | None:
 
 
 def _watchlist_rows(portfolio_id: int) -> list:
-    """Watchlist instruments with latest close price, latest hybrid signal and
-    latest model volatility (vol_20). Instruments without a signal yield NULLs."""
+    """Watchlist instruments with latest close price, latest hybrid signal,
+    latest model volatility (vol_20) and whether an open position is held.
+    Instruments without a signal yield NULLs."""
     model_id = _active_model_id(portfolio_id)
     return execute_query("""
         SELECT i.id AS instrument_id, i.symbol, i.name, i.instrument_type, i.area, i.sector,
                pd.close AS current_price,
                ps.quant_score, ps.llm_sentiment_modifier, ps.final_signal, ps.signal_date,
-               mp.vol_20
+               mp.vol_20,
+               EXISTS (
+                   SELECT 1 FROM portfolio_position pp
+                   WHERE pp.portfolio_id = pi.portfolio_id AND pp.instrument_id = i.id
+                     AND pp.qty != 0
+                     AND pp.pos_date = (SELECT MAX(pos_date) FROM portfolio_position
+                                        WHERE portfolio_id = pi.portfolio_id AND instrument_id = i.id)
+               ) AS has_open_position
         FROM portfolio_instrument pi
         JOIN instrument i ON pi.instrument_id = i.id
         LEFT JOIN (
@@ -78,6 +96,7 @@ def _serialize_watchlist_row(r: dict) -> dict:
         "llm_sentiment_modifier": round(float(r['llm_sentiment_modifier']), 4) if r['llm_sentiment_modifier'] is not None else None,
         "final_signal": round(float(r['final_signal']), 6) if r['final_signal'] is not None else None,
         "vol_20": round(float(r['vol_20']), 4) if r['vol_20'] is not None else None,
+        "has_open_position": bool(r['has_open_position']),
     }
 
 
@@ -271,6 +290,186 @@ def get_watchlist(code: str):
     port = _portfolio(code)
     rows = _watchlist_rows(port['id'])
     return [_serialize_watchlist_row(r) for r in rows]
+
+
+@router.get("/portfolios/{code}/universe")
+def get_universe(code: str):
+    """Investment universe: active instruments NOT linked to the portfolio,
+    usable as candidates to add to the watchlist."""
+    port = _portfolio(code)
+    portfolio_id = port['id']
+    rows = execute_query("""
+        SELECT i.id AS instrument_id, i.symbol, i.name, i.instrument_type, i.area, i.sector,
+               pd.close AS current_price
+        FROM instrument i
+        LEFT JOIN portfolio_instrument pi ON pi.instrument_id = i.id AND pi.portfolio_id = %s
+        LEFT JOIN (
+            SELECT instrument_id, MAX(trade_date) AS max_date
+            FROM price_daily WHERE close IS NOT NULL
+            GROUP BY instrument_id
+        ) mx ON mx.instrument_id = i.id
+        LEFT JOIN price_daily pd ON pd.instrument_id = mx.instrument_id AND pd.trade_date = mx.max_date
+        WHERE i.active = 1 AND pi.portfolio_id IS NULL
+        ORDER BY i.area, i.symbol
+    """, (portfolio_id,))
+    return [{
+        "instrument_id": int(r['instrument_id']),
+        "symbol": r['symbol'],
+        "name": r['name'],
+        "instrument_type": r['instrument_type'],
+        "area": r['area'],
+        "sector": r['sector'],
+        "current_price": round(float(r['current_price']), 6) if r['current_price'] else None,
+    } for r in rows]
+
+
+@router.post("/portfolios/{code}/universe")
+def add_to_universe(code: str, payload: UniverseAddRequest):
+    """Add a brand-new ticker to the investment universe (active, NOT linked
+    to the watchlist). Fetches metadata from yfinance as a best effort."""
+    port = _portfolio(code)
+    portfolio_id = port['id']
+    symbol = (payload.symbol or "").strip().upper()
+    if not symbol:
+        raise HTTPException(status_code=422, detail="Symbol is required")
+
+    linked = execute_query("""
+        SELECT i.id FROM instrument i
+        JOIN portfolio_instrument pi ON pi.instrument_id = i.id AND pi.portfolio_id = %s
+        WHERE i.symbol = %s
+    """, (portfolio_id, symbol))
+    if linked:
+        raise HTTPException(status_code=409, detail=f"{symbol} is already in the watchlist")
+
+    ins = execute_query(
+        "SELECT id, symbol, name, instrument_type, currency, area, sector, active FROM instrument WHERE symbol = %s",
+        (symbol,),
+    )
+
+    if ins:
+        row = ins[0]
+        added = False
+        if not row['active']:
+            execute_query("UPDATE instrument SET active = 1 WHERE id = %s", (row['id'],), fetch=False)
+        inst_id = int(row['id'])
+        return {
+            "instrument_id": inst_id,
+            "symbol": row['symbol'],
+            "name": row['name'],
+            "instrument_type": row['instrument_type'],
+            "currency": row['currency'],
+            "area": row['area'],
+            "sector": row['sector'],
+            "added": added,
+            "already_in_universe": True,
+            "message": f"{symbol} era già nell'universo (ora attivo).",
+        }
+
+    session = requests.Session()
+    session.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    name, inst_type, currency = _fetch_instrument_meta(symbol, session)
+
+    execute_query(
+        "INSERT INTO instrument (symbol, name, instrument_type, currency, active) VALUES (%s, %s, %s, %s, 1)",
+        (symbol, name, inst_type, currency),
+        fetch=False,
+    )
+    new_row = execute_query(
+        "SELECT id, symbol, name, instrument_type, currency, area, sector FROM instrument WHERE symbol = %s",
+        (symbol,),
+    )[0]
+    return {
+        "instrument_id": int(new_row['id']),
+        "symbol": new_row['symbol'],
+        "name": new_row['name'],
+        "instrument_type": new_row['instrument_type'],
+        "currency": new_row['currency'],
+        "area": new_row['area'],
+        "sector": new_row['sector'],
+        "added": True,
+        "already_in_universe": False,
+        "message": f"{symbol} aggiunto all'universo.",
+    }
+
+
+@router.post("/portfolios/{code}/watchlist")
+def add_to_watchlist(code: str, payload: WatchlistAddRequest):
+    port = _portfolio(code)
+    portfolio_id = port['id']
+    ins = execute_query(
+        "SELECT id, symbol, name, instrument_type, area, sector FROM instrument WHERE id = %s AND active = 1",
+        (payload.instrument_id,),
+    )
+    if not ins:
+        raise HTTPException(status_code=404, detail=f"Instrument {payload.instrument_id} not found or inactive")
+    row = ins[0]
+    linked = execute_query(
+        "SELECT 1 FROM portfolio_instrument WHERE portfolio_id = %s AND instrument_id = %s",
+        (portfolio_id, payload.instrument_id),
+    )
+    added = False
+    if not linked:
+        execute_query(
+            "INSERT INTO portfolio_instrument (portfolio_id, instrument_id) VALUES (%s, %s)",
+            (portfolio_id, payload.instrument_id),
+            fetch=False,
+        )
+        added = True
+    return {
+        "instrument_id": int(row['id']),
+        "symbol": row['symbol'],
+        "name": row['name'],
+        "instrument_type": row['instrument_type'],
+        "area": row['area'],
+        "sector": row['sector'],
+        "added": added,
+    }
+
+
+@router.delete("/portfolios/{code}/watchlist/{instrument_id}")
+def remove_from_watchlist(code: str, instrument_id: int):
+    port = _portfolio(code)
+    portfolio_id = port['id']
+    ins = execute_query("SELECT id, symbol FROM instrument WHERE id = %s", (instrument_id,))
+    if not ins:
+        raise HTTPException(status_code=404, detail=f"Instrument {instrument_id} not found")
+    symbol = ins[0]['symbol']
+
+    linked = execute_query(
+        "SELECT 1 FROM portfolio_instrument WHERE portfolio_id = %s AND instrument_id = %s",
+        (portfolio_id, instrument_id),
+    )
+    if not linked:
+        return {
+            "instrument_id": instrument_id,
+            "symbol": symbol,
+            "removed": False,
+            "message": "Instrument was not in the watchlist.",
+        }
+
+    open_pos = execute_query("""
+        SELECT 1 FROM portfolio_position pp
+        WHERE pp.portfolio_id = %s AND pp.instrument_id = %s AND pp.qty != 0
+          AND pp.pos_date = (SELECT MAX(pos_date) FROM portfolio_position
+                             WHERE portfolio_id = %s AND instrument_id = %s)
+    """, (portfolio_id, instrument_id, portfolio_id, instrument_id))
+    if open_pos:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Instrument {symbol} has an open position: close it first in 'Portafoglio Attuale'.",
+        )
+
+    execute_query(
+        "DELETE FROM portfolio_instrument WHERE portfolio_id = %s AND instrument_id = %s",
+        (portfolio_id, instrument_id),
+        fetch=False,
+    )
+    return {
+        "instrument_id": instrument_id,
+        "symbol": symbol,
+        "removed": True,
+        "message": "Instrument removed from the watchlist. It stays available in the universe.",
+    }
 
 
 @router.post("/portfolios/{code}/holdings/save")
