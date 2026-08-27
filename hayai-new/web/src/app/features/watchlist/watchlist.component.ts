@@ -53,7 +53,7 @@ import { ApiService } from '../../core/services/api.service';
           </div>
           <button type="button" class="btn-cyber" (click)="addSymbolToUniverse()" [disabled]="!newSymbol().trim() || addingSymbol()"
                   style="background: #0f172a; box-shadow: 0 2px 4px rgba(15,23,42,0.25);">
-            {{ addingSymbol() ? 'Verifico...' : '+ Aggiungi all\'universo' }}
+            {{ addingSymbol() ? "Verifico..." : "+ Aggiungi all'universo" }}
           </button>
         </div>
       </div>
