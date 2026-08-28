@@ -14,34 +14,35 @@ import { ApiService } from '../../core/services/api.service';
           <div>
             <span style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #365314; background: #f7fee7; padding: 0.25rem 0.5rem; border: 1px solid #bef264; text-transform: uppercase; letter-spacing: 0.05em;">Revisione Martedì // Tesi di Investimento</span>
             <h1 class="font-display" style="font-size: 2rem; font-weight: 800; color: #0f172a; margin-top: 0.5rem; margin-bottom: 0.25rem;">COMPOSIZIONE CONSIGLIATA (LONG / SHORT)</h1>
-            <p style="font-family: 'Rajdhani'; font-size: 1.15rem; color: #64748b; margin: 0;">Data Segnale: <strong style="font-family: 'JetBrains Mono'; color: #0f172a;">{{ recDate() || 'N/D' }}</strong> | Capitale Riferimento: <strong style="font-family: 'JetBrains Mono'; color: #0f172a;">€5,000.00</strong></p>
+            <p style="font-family: 'Rajdhani'; font-size: 1.15rem; color: #64748b; margin: 0;">Data Segnale: <strong style="font-family: 'JetBrains Mono'; color: #0f172a;">{{ recDate() || 'N/D' }}</strong> | Capitale Riferimento: <strong style="font-family: 'JetBrains Mono'; color: #0f172a;">€{{ equityIndicativa() | number:'1.0-0' }}</strong></p>
           </div>
           <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: stretch;">
             <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
-              <div style="color: #94a3b8;">VALORE PORTAFOGLIO OGGI</div>
-              <strong style="color: #0f172a; font-size: 1.05rem;">{{ navValue() !== null ? ('€' + (navValue() | number:'1.2-2')) : 'N/D' }}</strong>
+              <div style="color: #94a3b8;">VALORE PORTAFOGLIO TARGET</div>
+              <strong style="color: #0f172a; font-size: 1.05rem;">€{{ totalRecommended() | number:'1.2-2' }}</strong>
+              <div style="font-size: 0.7rem; color: #64748b;">su €{{ equityIndicativa() | number:'1.0-0' }} · {{ riskPct() * 100 | number:'1.0-0' }}% investito</div>
             </div>
             <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
-              <div style="color: #94a3b8;">TARGET LONG</div>
+              <div style="color: #94a3b8;">LIQUIDITÀ TARGET</div>
+              <strong style="color: #0f172a; font-size: 1.05rem;">€{{ targetCash() | number:'1.2-2' }}</strong>
+              <div style="font-size: 0.7rem; color: #64748b;">capitale non allocato</div>
+            </div>
+            <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
+              <div style="color: #94a3b8;">LONG TARGET</div>
               <strong style="color: #4d7c0f; font-size: 1.05rem;">€{{ longTarget() | number:'1.2-2' }}</strong>
               <div style="font-size: 0.7rem; color: #64748b;">{{ longCount() }} posizioni</div>
             </div>
             <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
-              <div style="color: #94a3b8;">TARGET SHORT</div>
+              <div style="color: #94a3b8;">SHORT TARGET</div>
               <strong style="color: #b91c1c; font-size: 1.05rem;">€{{ shortTarget() | number:'1.2-2' }}</strong>
               <div style="font-size: 0.7rem; color: #64748b;">{{ shortCount() }} posizioni</div>
             </div>
             <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
-              <div style="color: #94a3b8;">SCOSTAMENTO (NAV-TARGET)</div>
-              <strong [style.color]="(navDelta() ?? 0) >= 0 ? '#16a34a' : '#dc2626'" style="font-size: 1.05rem;">
-                {{ formatDelta(navDelta()) }}
+              <div style="color: #94a3b8;">SCOSTAMENTO (POSIZIONI−TARGET)</div>
+              <strong [style.color]="(scostamento() ?? 0) >= 0 ? '#16a34a' : '#dc2626'" style="font-size: 1.05rem;">
+                {{ formatDelta(scostamento()) }}
               </strong>
-            </div>
-            <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
-              <div style="color: #94a3b8;">P&L DA INIZIO (€5,000)</div>
-              <strong [style.color]="pnlInit() !== null && pnlInit() >= 0 ? '#16a34a' : '#dc2626'" style="font-size: 1.05rem;">
-                {{ pnlInit() !== null ? formatPnl(pnlInit(), pnlInitPct()) : 'N/D' }}
-              </strong>
+              <div style="font-size: 0.7rem; color: #64748b;">posizioni oggi €{{ positionsValue() !== null ? (positionsValue() | number:'1.2-2') : 'N/D' }}</div>
             </div>
           </div>
         </div>
@@ -182,11 +183,7 @@ export class RecommendationsComponent implements OnInit {
   executingId = signal<number | null>(null);
   status = signal<{ ok: boolean; message: string } | null>(null);
 
-  navValue = computed(() => this.value()?.nav ?? null);
-  pnl30 = computed(() => this.value()?.pnl_vs_30d ?? null);
-  pnl30Pct = computed(() => this.value()?.pnl_vs_30d_pct ?? null);
-  pnlInit = computed(() => this.value()?.pnl_vs_initial ?? null);
-  pnlInitPct = computed(() => this.value()?.pnl_vs_initial_pct ?? null);
+  positionsValue = computed(() => this.value()?.positions_value ?? null);
 
   longTarget = computed(() => this.items().filter((i) => i.side === 'long').reduce((s, i) => s + (Number(i.target_amount) || 0), 0));
   shortTarget = computed(() => this.items().filter((i) => i.side === 'short').reduce((s, i) => s + (Number(i.target_amount) || 0), 0));
@@ -194,18 +191,14 @@ export class RecommendationsComponent implements OnInit {
   shortCount = computed(() => this.items().filter((i) => i.side === 'short').length);
 
   totalRecommended = computed(() => this.longTarget() + this.shortTarget());
-  navDelta = computed(() => {
-    const nav = this.navValue();
+  targetCash = computed(() => this.equityIndicativa() - this.totalRecommended());
+  scostamento = computed(() => {
+    const pos = this.positionsValue();
     const target = this.totalRecommended();
-    return nav !== null && target > 0 ? nav - target : null;
+    return pos !== null && target > 0 ? pos - target : null;
   });
 
   constructor(private api: ApiService) {}
-
-  formatPnl(amount: number, pct: number): string {
-    const sign = amount >= 0 ? '+' : '-';
-    return `${sign}€${Math.abs(amount).toFixed(2)} (${sign}${Math.abs(pct).toFixed(2)}%)`;
-  }
 
   formatDelta(val: number | null): string {
     if (val === null) return 'N/D';
