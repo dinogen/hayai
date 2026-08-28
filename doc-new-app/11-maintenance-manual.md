@@ -173,7 +173,7 @@ manuali di portafoglio/config.
 |---|---|---|
 | **Dashboard** | `/` | Panoramica portafogli, stato ultimi job notturni, data ultimo aggiornamento, box "Mercati Aperti/Chiusi" (USA/EU/Asia, aggiornato ogni 60s) |
 | **Composizione Consigliata** (vista del martedì) | `/portfolios/:code/recommendations` | **Le Schede Tesi di Investimento**: per ogni asset raccomandato peso, side, Quant Score, sentiment DeepSeek, prezzo, importo target e quote, **rationale in italiano** e variazione vs settimana precedente. È la pagina da aprire prima della revisione con il promotore |
-| **Portafoglio Attuale** | `/portfolio` | Editor delle posizioni reali (qty, avg_price, side long/short). Qui si registrano le operazioni fatte (compri/vendi), con pulsante "Applica Raccomandazioni del Modello" per allineare alla target e "SALVA" (→ `portfolio_trade`, ricalcolo cash) |
+| **Portafoglio Attuale** | `/portfolio` | Editor delle posizioni reali (qty, avg_price, side long/short). Qui si registrano le operazioni fatte (compri/vendi), con pulsante "SALVA" (→ `portfolio_trade`, ricalcolo cash). Le raccomandazioni del modello si eseguono per riga dalla "Composizione Consigliata" (Tabella di Riconciliazione, bottone "Esegui" → `POST /holdings/execute`) |
 | **Tabella Segnali** | `/portfolios/:code/signals` | Tutti gli strumenti con `quant_score`, modificatore LLM, `final_signal` e il **breakdown per-notizia** (quale notizia ha contribuito quanto, con decay) |
 | **Watchlist** | `/watchlist` | Universo completo con area (badge), segnali, `vol_20` (colorata per rischio) e prezzo. Righe cliccabili verso il dettaglio strumento |
 | **Dettaglio Strumento** | `/watchlist/:symbol` | Header informativo, KPI (Quant/Sentiment/Finale/Vol), **candlestick chart** con MA20/MA50 e le ultime 10 notizie con analisi IA |
@@ -183,8 +183,9 @@ manuali di portafoglio/config.
 | **Configurazione** | `/config` | Capitale iniziale simulato, `max_assets`, e **Reset Portafoglio** (azzera posizioni/cash senza toccare i dati del modello) |
 
 **Flusso d'uso del martedì**: aprire *Composizione Consigliata* → leggere le schede tesi
-e i segnali → valutare con il promotore → registrare in *Portafoglio Attuale* le operazioni
-effettivamente eseguite. Nei giorni successivi il job `nav` valuta le posizioni ai prezzi
+e i segnali → valutare con il promotore → eseguire la singola raccomandazione con il bottone
+**"Esegui"** della Tabella di Riconciliazione (o registrare in *Portafoglio Attuale* le operazioni
+effettivamente eseguite). Nei giorni successivi il job `nav` valuta le posizioni ai prezzi
 di mercato e l'header mostra NAV e P&L (vs mese scorso e vs €5.000 iniziali).
 
 ---

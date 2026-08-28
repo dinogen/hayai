@@ -108,6 +108,91 @@ def build_trades(current: dict, target: dict, close_map: dict, threshold_eur: fl
     return trades, desired, snapshot_avg
 
 
+def build_reconciliation(current: dict, target: dict, close_map: dict, threshold_eur: float | None = None) -> dict:
+    """Map the trades that `build_trades` would execute to human-readable actions.
+
+    This is the single source of truth for the reconciliation table: the UI always
+    shows exactly what the execution (build_trades) will do, including side flips
+    (close + re-open) which a naive absolute-quantity comparison would get wrong.
+
+    Args:
+        current: {instrument_id: {"qty": signed float, "avg_price": float|None}}
+        target: {instrument_id: {"side": "long"|"short", "qty": positive float, "avg_price": float|None}}
+        close_map: {instrument_id: latest close price}
+        threshold_eur: optional tolerance (same semantics as build_trades).
+
+    Returns:
+        {instrument_id: {"action", "message", "diff_qty"}} with action in
+        buy/sell/short/cover/flip/hold.
+    """
+    def _fmt_qty(q: float) -> str:
+        return f"{q:.2f}"
+
+    # Normalize short targets to whole units (same rule as align/save/execute);
+    # a target that rounds to zero is treated as closed (dropped).
+    normalized_target = {}
+    for inst_id, t in target.items():
+        qty = t["qty"]
+        if t["side"] == "short":
+            qty = round_short_qty(qty)
+            if qty == 0:
+                continue
+        normalized_target[inst_id] = {**t, "qty": qty}
+    target = normalized_target
+
+    trades, desired, _ = build_trades(current, target, close_map, threshold_eur=threshold_eur)
+
+    trades_by_inst: dict[int, list] = {}
+    for inst_id, side, qty, _price, _amount in trades:
+        trades_by_inst.setdefault(inst_id, []).append((side, qty))
+
+    result: dict = {}
+    for inst_id in set(current) | set(target):
+        cur_signed = float(current.get(inst_id, {}).get("qty") or 0.0)
+        t = target.get(inst_id)
+        tgt_signed = t["qty"] if t and t["side"] == "long" else (-t["qty"] if t else 0.0)
+        post_signed = desired.get(inst_id, 0.0)
+        inst_trades = trades_by_inst.get(inst_id, [])
+
+        if not inst_trades:
+            if cur_signed == 0:
+                continue  # nothing held, nothing recommended
+            result[inst_id] = {
+                "action": "hold",
+                "message": f"mantieni {_fmt_qty(abs(cur_signed))} (invariato)",
+                "diff_qty": 0.0,
+            }
+        elif len(inst_trades) == 1:
+            side, qty = inst_trades[0]
+            qty_str = _fmt_qty(qty)
+            if side == "buy":
+                action = "buy"
+                message = f"apri long {qty_str}" if cur_signed == 0 else f"compra {qty_str}"
+            elif side == "sell":
+                action = "sell"
+                message = f"chiudi long (vendi {qty_str})" if post_signed == 0 else f"vendi {qty_str}"
+            elif side == "short":
+                action = "short"
+                message = f"apri short {qty_str}" if cur_signed == 0 else f"shorta {qty_str}"
+            else:  # cover
+                action = "cover"
+                message = f"chiudi short (copri {qty_str})" if post_signed == 0 else f"copri {qty_str}"
+            result[inst_id] = {"action": action, "message": message, "diff_qty": float(qty)}
+        else:
+            # Two trades: full close + re-open in the opposite direction (side flip).
+            close_side, close_qty = inst_trades[0]
+            open_side, open_qty = inst_trades[1]
+            close_txt = "long" if close_side == "sell" else "short"
+            open_txt = "long" if open_side == "buy" else "short"
+            result[inst_id] = {
+                "action": "flip",
+                "message": f"chiudi {close_txt} e apri {open_txt} {_fmt_qty(open_qty)}",
+                "diff_qty": float(close_qty) + float(open_qty),
+            }
+
+    return result
+
+
 def apply_trades(
     conn, cursor, portfolio_id: int, trade_date: str, trades: list,
     desired: dict, current: dict, initial_capital: float, close_map: dict,

@@ -130,6 +130,7 @@ import { ApiService } from '../../core/services/api.service';
                 <th style="padding: 0.75rem; text-align: right;">Quote Possedute</th>
                 <th style="padding: 0.75rem; text-align: right;">Quote Raccomandate</th>
                 <th style="padding: 0.75rem;">Azione / Messaggio</th>
+                <th style="padding: 0.75rem; text-align: center;">Esegui</th>
               </tr>
             </thead>
             <tbody>
@@ -145,16 +146,27 @@ import { ApiService } from '../../core/services/api.service';
                   {{ row.target_qty | number:'1.2-2' }}
                 </td>
                 <td style="padding: 0.75rem;">
-                  <span [style.background]="row.action === 'buy' ? '#ecfccb' : (row.action === 'sell' ? '#ffe4e4' : '#f1f5f9')"
-                        [style.color]="row.action === 'buy' ? '#365314' : (row.action === 'sell' ? '#991b1b' : '#475569')"
-                        [style.borderColor]="row.action === 'buy' ? '#bef264' : (row.action === 'sell' ? '#fecaca' : '#cbd5e1')"
+                  <span [style.background]="actionStyle(row.action).bg"
+                        [style.color]="actionStyle(row.action).fg"
+                        [style.borderColor]="actionStyle(row.action).border"
                         style="display: inline-block; padding: 0.25rem 0.6rem; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; border: 1px solid; letter-spacing: 0.05em;">
                     {{ row.message | uppercase }}
                   </span>
                 </td>
+                <td style="padding: 0.75rem; text-align: center;">
+                  <button type="button" (click)="executeRow(row)"
+                          [disabled]="row.action === 'hold' || executingId() === row.instrument_id"
+                          [style.opacity]="row.action === 'hold' ? 0.45 : 1"
+                          style="font-family: 'JetBrains Mono'; font-size: 0.72rem; font-weight: bold; text-transform: uppercase; background: #0f172a; color: #ffffff; border: none; padding: 0.3rem 0.7rem; cursor: pointer;">
+                    {{ executingId() === row.instrument_id ? 'Eseg...' : 'Esegui' }}
+                  </button>
+                </td>
               </tr>
             </tbody>
           </table>
+        </div>
+        <div *ngIf="status()" style="margin-top: 1rem; padding: 0.7rem 1rem; font-family: 'JetBrains Mono'; font-size: 0.8rem;" [style.background]="status()?.ok ? '#f0fdf4' : '#fef2f2'" [style.color]="status()?.ok ? '#166534' : '#991b1b'" [style.borderLeft]="status()?.ok ? '4px solid #16a34a' : '4px solid #dc2626'">
+          {{ status()?.message }}
         </div>
       </div>
     </div>
@@ -167,6 +179,8 @@ export class RecommendationsComponent implements OnInit {
   equityIndicativa = signal(5000);
   riskPct = signal(0.9);
   value = signal<any>(null);
+  executingId = signal<number | null>(null);
+  status = signal<{ ok: boolean; message: string } | null>(null);
 
   navValue = computed(() => this.value()?.nav ?? null);
   pnl30 = computed(() => this.value()?.pnl_vs_30d ?? null);
@@ -199,7 +213,51 @@ export class RecommendationsComponent implements OnInit {
     return `${sign}${Math.abs(val).toFixed(2)}`;
   }
 
+  actionStyle(action: string): { bg: string; fg: string; border: string } {
+    switch (action) {
+      case 'buy': return { bg: '#ecfccb', fg: '#365314', border: '#bef264' };
+      case 'sell': return { bg: '#ffe4e4', fg: '#991b1b', border: '#fecaca' };
+      case 'short': return { bg: '#fef3c7', fg: '#92400e', border: '#fde68a' };
+      case 'cover': return { bg: '#eff6ff', fg: '#1e40af', border: '#bfdbfe' };
+      case 'flip': return { bg: '#fdf4ff', fg: '#7e22ce', border: '#f0abfc' };
+      default: return { bg: '#f1f5f9', fg: '#475569', border: '#cbd5e1' };
+    }
+  }
+
+  executeRow(row: any) {
+    const confirmed = window.confirm(
+      `Eseguire la raccomandazione per ${row.symbol}?\n\n${row.message}\n\nVerranno registrate le operazioni in portfolio_trade e ricalcolato il cash.`
+    );
+    if (!confirmed) return;
+    this.executingId.set(row.instrument_id);
+    this.status.set(null);
+    this.api.executeRecommendation('main', row.instrument_id).subscribe({
+      next: (res) => {
+        this.executingId.set(null);
+        if (res.executed === false) {
+          this.status.set({ ok: true, message: `${row.symbol}: ${res.message}` });
+        } else {
+          this.status.set({
+            ok: true,
+            message: `${row.symbol}: ${res.trades_executed} operazione/i registrata/e — NAV €${Number(res.nav).toFixed(2)}, cash €${Number(res.cash_balance).toFixed(2)}`,
+          });
+        }
+        this.loadData();
+      },
+      error: (err) => {
+        console.error(err);
+        this.executingId.set(null);
+        const detail = err.error?.detail || err.message || 'errore sconosciuto';
+        this.status.set({ ok: false, message: `${row.symbol}: ${detail}` });
+      }
+    });
+  }
+
   ngOnInit() {
+    this.loadData();
+  }
+
+  loadData() {
     this.api.getLatestRecommendations('main').subscribe({
       next: (res) => {
         this.items.set(res.items || []);

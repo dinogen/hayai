@@ -70,11 +70,6 @@ interface NewForm {
 
       <!-- Action Bar -->
       <div class="hud-card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-        <button type="button" class="btn-cyber" (click)="applyRecommendations()"
-                [disabled]="!hasRecommendations()"
-                style="background: #0f172a; box-shadow: 0 2px 4px rgba(15,23,42,0.25);">
-          Applica Raccomandazioni del Modello
-        </button>
         <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: stretch;">
           <button type="button" (click)="downloadReport()"
                   style="font-family: 'JetBrains Mono'; font-size: 0.8rem; font-weight: 600; color: #1e40af; background: #eff6ff; border: 1.5px dashed #1e40af; border-radius: 999px; padding: 0.55rem 1rem; cursor: pointer;">
@@ -143,7 +138,7 @@ interface NewForm {
               </tr>
               <tr *ngIf="rows().length === 0">
                 <td colspan="8" style="text-align: center; color: #94a3b8; font-family: 'Rajdhani'; font-size: 1.1rem; padding: 2rem;">
-                  Nessuna posizione aperta. Apri una nuova posizione qui sotto o applica le raccomandazioni del modello.
+                  Nessuna posizione aperta. Apri una nuova posizione qui sotto o esegui le raccomandazioni dalla pagina Raccomandazioni.
                 </td>
               </tr>
             </tbody>
@@ -191,7 +186,6 @@ export class HoldingsComponent implements OnInit {
   data = signal<any>(null);
   rows = signal<EditorRow[]>([]);
   watchlist = signal<any[]>([]);
-  recommendations = signal<any[]>([]);
   recDate = signal('');
   status = signal<{ ok: boolean; message: string } | null>(null);
   saving = signal(false);
@@ -220,7 +214,6 @@ export class HoldingsComponent implements OnInit {
           }))
         );
         this.watchlist.set(res.watchlist || []);
-        this.recommendations.set(res.latest_recommendations?.items || []);
         this.recDate.set(res.latest_recommendations?.rec_date || '');
         this.status.set(null);
       },
@@ -304,10 +297,6 @@ export class HoldingsComponent implements OnInit {
       },
       error: (err) => console.error(err)
     });
-  }
-
-  hasRecommendations(): boolean {
-    return this.recommendations().length > 0;
   }
 
   availableWatchlist(): any[] {
@@ -411,38 +400,6 @@ export class HoldingsComponent implements OnInit {
     this.rows.set([...this.rows(), row]);
     this.newForm.set({ instrument_id: 0, side: 'long', qty: 0, avg_price: 0 });
     this.status.set(null);
-  }
-
-  applyRecommendations() {
-    const recs = this.recommendations();
-    if (recs.length === 0) return;
-    const confirmed = window.confirm(
-      'Applicare alla lettera le raccomandazioni del modello? Verranno chiuse tutte le posizioni non in target e allineate le quantità raccomandate.'
-    );
-    if (!confirmed) return;
-
-    const currentByInstrument = new Map(this.rows().map((r) => [r.instrument_id, r]));
-    const watchByInstrument = new Map(this.watchlist().map((w) => [w.instrument_id, w]));
-
-    const rows: EditorRow[] = recs
-      .filter((rec) => rec.target_qty > 0)
-      .map((rec) => {
-        const existing = currentByInstrument.get(rec.instrument_id);
-        const w = watchByInstrument.get(rec.instrument_id);
-        return {
-          instrument_id: rec.instrument_id,
-          symbol: rec.symbol || w?.symbol || String(rec.instrument_id),
-          name: existing?.name || w?.name || w?.instrument_type || '',
-          instrument_type: existing?.instrument_type || w?.instrument_type || '',
-          side: rec.side,
-          qty: Number(rec.target_qty),
-          avg_price: existing ? existing.avg_price : (w?.current_price ?? 0),
-          current_price: existing?.current_price ?? (w?.current_price ?? 0),
-        };
-      });
-
-    this.rows.set(rows);
-    this.status.set({ ok: true, message: `Editor popolato con ${rows.length} posizioni dal modello. Premi SALVA per applicare.` });
   }
 
   save() {

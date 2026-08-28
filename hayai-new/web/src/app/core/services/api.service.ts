@@ -85,6 +85,10 @@ export class ApiService {
     return this.http.post(`${this.baseUrl}/portfolios/${code}/holdings/save`, { positions });
   }
 
+  executeRecommendation(code: string, instrumentId: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/portfolios/${code}/holdings/execute`, { instrument_id: instrumentId });
+  }
+
   getPortfolioConfig(code: string): Observable<any> {
     return this.http.get(`${this.baseUrl}/portfolios/${code}/config`);
   }
