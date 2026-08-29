@@ -14,34 +14,35 @@ import { ApiService } from '../../core/services/api.service';
           <div>
             <span style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #365314; background: #f7fee7; padding: 0.25rem 0.5rem; border: 1px solid #bef264; text-transform: uppercase; letter-spacing: 0.05em;">Revisione Martedì // Tesi di Investimento</span>
             <h1 class="font-display" style="font-size: 2rem; font-weight: 800; color: #0f172a; margin-top: 0.5rem; margin-bottom: 0.25rem;">COMPOSIZIONE CONSIGLIATA (LONG / SHORT)</h1>
-            <p style="font-family: 'Rajdhani'; font-size: 1.15rem; color: #64748b; margin: 0;">Data Segnale: <strong style="font-family: 'JetBrains Mono'; color: #0f172a;">{{ recDate() || 'N/D' }}</strong> | Capitale Riferimento: <strong style="font-family: 'JetBrains Mono'; color: #0f172a;">€5,000.00</strong></p>
+            <p style="font-family: 'Rajdhani'; font-size: 1.15rem; color: #64748b; margin: 0;">Data Segnale: <strong style="font-family: 'JetBrains Mono'; color: #0f172a;">{{ recDate() || 'N/D' }}</strong> | Capitale Riferimento: <strong style="font-family: 'JetBrains Mono'; color: #0f172a;">€{{ equityIndicativa() | number:'1.0-0' }}</strong></p>
           </div>
           <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: stretch;">
             <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
-              <div style="color: #94a3b8;">VALORE PORTAFOGLIO OGGI</div>
-              <strong style="color: #0f172a; font-size: 1.05rem;">{{ navValue() !== null ? ('€' + (navValue() | number:'1.2-2')) : 'N/D' }}</strong>
+              <div style="color: #94a3b8;">VALORE PORTAFOGLIO TARGET</div>
+              <strong style="color: #0f172a; font-size: 1.05rem;">€{{ totalRecommended() | number:'1.2-2' }}</strong>
+              <div style="font-size: 0.7rem; color: #64748b;">su €{{ equityIndicativa() | number:'1.0-0' }} · {{ riskPct() * 100 | number:'1.0-0' }}% investito</div>
             </div>
             <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
-              <div style="color: #94a3b8;">TARGET LONG</div>
+              <div style="color: #94a3b8;">LIQUIDITÀ TARGET</div>
+              <strong style="color: #0f172a; font-size: 1.05rem;">€{{ targetCash() | number:'1.2-2' }}</strong>
+              <div style="font-size: 0.7rem; color: #64748b;">capitale non allocato</div>
+            </div>
+            <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
+              <div style="color: #94a3b8;">LONG TARGET</div>
               <strong style="color: #4d7c0f; font-size: 1.05rem;">€{{ longTarget() | number:'1.2-2' }}</strong>
               <div style="font-size: 0.7rem; color: #64748b;">{{ longCount() }} posizioni</div>
             </div>
             <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
-              <div style="color: #94a3b8;">TARGET SHORT</div>
+              <div style="color: #94a3b8;">SHORT TARGET</div>
               <strong style="color: #b91c1c; font-size: 1.05rem;">€{{ shortTarget() | number:'1.2-2' }}</strong>
               <div style="font-size: 0.7rem; color: #64748b;">{{ shortCount() }} posizioni</div>
             </div>
             <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
-              <div style="color: #94a3b8;">SCOSTAMENTO (NAV-TARGET)</div>
-              <strong [style.color]="(navDelta() ?? 0) >= 0 ? '#16a34a' : '#dc2626'" style="font-size: 1.05rem;">
-                {{ formatDelta(navDelta()) }}
+              <div style="color: #94a3b8;">SCOSTAMENTO (POSIZIONI−TARGET)</div>
+              <strong [style.color]="(scostamento() ?? 0) >= 0 ? '#16a34a' : '#dc2626'" style="font-size: 1.05rem;">
+                {{ formatDelta(scostamento()) }}
               </strong>
-            </div>
-            <div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #334155; min-width: 150px;">
-              <div style="color: #94a3b8;">P&L DA INIZIO (€5,000)</div>
-              <strong [style.color]="pnlInit() !== null && pnlInit() >= 0 ? '#16a34a' : '#dc2626'" style="font-size: 1.05rem;">
-                {{ pnlInit() !== null ? formatPnl(pnlInit(), pnlInitPct()) : 'N/D' }}
-              </strong>
+              <div style="font-size: 0.7rem; color: #64748b;">posizioni oggi €{{ positionsValue() !== null ? (positionsValue() | number:'1.2-2') : 'N/D' }}</div>
             </div>
           </div>
         </div>
@@ -130,6 +131,7 @@ import { ApiService } from '../../core/services/api.service';
                 <th style="padding: 0.75rem; text-align: right;">Quote Possedute</th>
                 <th style="padding: 0.75rem; text-align: right;">Quote Raccomandate</th>
                 <th style="padding: 0.75rem;">Azione / Messaggio</th>
+                <th style="padding: 0.75rem; text-align: center;">Esegui</th>
               </tr>
             </thead>
             <tbody>
@@ -145,16 +147,27 @@ import { ApiService } from '../../core/services/api.service';
                   {{ row.target_qty | number:'1.2-2' }}
                 </td>
                 <td style="padding: 0.75rem;">
-                  <span [style.background]="row.action === 'buy' ? '#ecfccb' : (row.action === 'sell' ? '#ffe4e4' : '#f1f5f9')"
-                        [style.color]="row.action === 'buy' ? '#365314' : (row.action === 'sell' ? '#991b1b' : '#475569')"
-                        [style.borderColor]="row.action === 'buy' ? '#bef264' : (row.action === 'sell' ? '#fecaca' : '#cbd5e1')"
+                  <span [style.background]="actionStyle(row.action).bg"
+                        [style.color]="actionStyle(row.action).fg"
+                        [style.borderColor]="actionStyle(row.action).border"
                         style="display: inline-block; padding: 0.25rem 0.6rem; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; border: 1px solid; letter-spacing: 0.05em;">
                     {{ row.message | uppercase }}
                   </span>
                 </td>
+                <td style="padding: 0.75rem; text-align: center;">
+                  <button type="button" (click)="executeRow(row)"
+                          [disabled]="row.action === 'hold' || executingId() === row.instrument_id"
+                          [style.opacity]="row.action === 'hold' ? 0.45 : 1"
+                          style="font-family: 'JetBrains Mono'; font-size: 0.72rem; font-weight: bold; text-transform: uppercase; background: #0f172a; color: #ffffff; border: none; padding: 0.3rem 0.7rem; cursor: pointer;">
+                    {{ executingId() === row.instrument_id ? 'Eseg...' : 'Esegui' }}
+                  </button>
+                </td>
               </tr>
             </tbody>
           </table>
+        </div>
+        <div *ngIf="status()" style="margin-top: 1rem; padding: 0.7rem 1rem; font-family: 'JetBrains Mono'; font-size: 0.8rem;" [style.background]="status()?.ok ? '#f0fdf4' : '#fef2f2'" [style.color]="status()?.ok ? '#166534' : '#991b1b'" [style.borderLeft]="status()?.ok ? '4px solid #16a34a' : '4px solid #dc2626'">
+          {{ status()?.message }}
         </div>
       </div>
     </div>
@@ -167,12 +180,10 @@ export class RecommendationsComponent implements OnInit {
   equityIndicativa = signal(5000);
   riskPct = signal(0.9);
   value = signal<any>(null);
+  executingId = signal<number | null>(null);
+  status = signal<{ ok: boolean; message: string } | null>(null);
 
-  navValue = computed(() => this.value()?.nav ?? null);
-  pnl30 = computed(() => this.value()?.pnl_vs_30d ?? null);
-  pnl30Pct = computed(() => this.value()?.pnl_vs_30d_pct ?? null);
-  pnlInit = computed(() => this.value()?.pnl_vs_initial ?? null);
-  pnlInitPct = computed(() => this.value()?.pnl_vs_initial_pct ?? null);
+  positionsValue = computed(() => this.value()?.positions_value ?? null);
 
   longTarget = computed(() => this.items().filter((i) => i.side === 'long').reduce((s, i) => s + (Number(i.target_amount) || 0), 0));
   shortTarget = computed(() => this.items().filter((i) => i.side === 'short').reduce((s, i) => s + (Number(i.target_amount) || 0), 0));
@@ -180,18 +191,14 @@ export class RecommendationsComponent implements OnInit {
   shortCount = computed(() => this.items().filter((i) => i.side === 'short').length);
 
   totalRecommended = computed(() => this.longTarget() + this.shortTarget());
-  navDelta = computed(() => {
-    const nav = this.navValue();
+  targetCash = computed(() => this.equityIndicativa() - this.totalRecommended());
+  scostamento = computed(() => {
+    const pos = this.positionsValue();
     const target = this.totalRecommended();
-    return nav !== null && target > 0 ? nav - target : null;
+    return pos !== null && target > 0 ? pos - target : null;
   });
 
   constructor(private api: ApiService) {}
-
-  formatPnl(amount: number, pct: number): string {
-    const sign = amount >= 0 ? '+' : '-';
-    return `${sign}€${Math.abs(amount).toFixed(2)} (${sign}${Math.abs(pct).toFixed(2)}%)`;
-  }
 
   formatDelta(val: number | null): string {
     if (val === null) return 'N/D';
@@ -199,7 +206,51 @@ export class RecommendationsComponent implements OnInit {
     return `${sign}${Math.abs(val).toFixed(2)}`;
   }
 
+  actionStyle(action: string): { bg: string; fg: string; border: string } {
+    switch (action) {
+      case 'buy': return { bg: '#ecfccb', fg: '#365314', border: '#bef264' };
+      case 'sell': return { bg: '#ffe4e4', fg: '#991b1b', border: '#fecaca' };
+      case 'short': return { bg: '#fef3c7', fg: '#92400e', border: '#fde68a' };
+      case 'cover': return { bg: '#eff6ff', fg: '#1e40af', border: '#bfdbfe' };
+      case 'flip': return { bg: '#fdf4ff', fg: '#7e22ce', border: '#f0abfc' };
+      default: return { bg: '#f1f5f9', fg: '#475569', border: '#cbd5e1' };
+    }
+  }
+
+  executeRow(row: any) {
+    const confirmed = window.confirm(
+      `Eseguire la raccomandazione per ${row.symbol}?\n\n${row.message}\n\nVerranno registrate le operazioni in portfolio_trade e ricalcolato il cash.`
+    );
+    if (!confirmed) return;
+    this.executingId.set(row.instrument_id);
+    this.status.set(null);
+    this.api.executeRecommendation('main', row.instrument_id).subscribe({
+      next: (res) => {
+        this.executingId.set(null);
+        if (res.executed === false) {
+          this.status.set({ ok: true, message: `${row.symbol}: ${res.message}` });
+        } else {
+          this.status.set({
+            ok: true,
+            message: `${row.symbol}: ${res.trades_executed} operazione/i registrata/e — NAV €${Number(res.nav).toFixed(2)}, cash €${Number(res.cash_balance).toFixed(2)}`,
+          });
+        }
+        this.loadData();
+      },
+      error: (err) => {
+        console.error(err);
+        this.executingId.set(null);
+        const detail = err.error?.detail || err.message || 'errore sconosciuto';
+        this.status.set({ ok: false, message: `${row.symbol}: ${detail}` });
+      }
+    });
+  }
+
   ngOnInit() {
+    this.loadData();
+  }
+
+  loadData() {
     this.api.getLatestRecommendations('main').subscribe({
       next: (res) => {
         this.items.set(res.items || []);

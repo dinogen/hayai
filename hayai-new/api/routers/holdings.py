@@ -4,7 +4,7 @@ from datetime import date, datetime
 import requests
 from app.db import execute_query, get_db_connection
 from app.math_utils import round_short_qty
-from app.portfolio_rebalance import build_trades, apply_trades
+from app.portfolio_rebalance import build_trades, apply_trades, DEFAULT_STALE_DAYS
 from app.jobs.universe import _fetch_instrument_meta
 
 router = APIRouter()
@@ -19,6 +19,10 @@ class PositionTarget(BaseModel):
 
 class HoldingsSaveRequest(BaseModel):
     positions: list[PositionTarget]
+
+
+class ExecuteRecommendationRequest(BaseModel):
+    instrument_id: int
 
 
 class WatchlistAddRequest(BaseModel):
@@ -554,4 +558,130 @@ def save_holdings(code: str, payload: HoldingsSaveRequest):
         "positions_saved": len(desired),
         "trades_executed": summary["trades_executed"],
         "message": "Holdings saved successfully.",
+    }
+
+
+@router.post("/portfolios/{code}/holdings/execute")
+def execute_recommendation(code: str, payload: ExecuteRecommendationRequest, stale_days: int = DEFAULT_STALE_DAYS):
+    """Execute the latest recommendation for a single instrument (manual, per-row).
+
+    The target is re-read from portfolio_recommendation (server authoritative) and
+    applied with the same build_trades + apply_trades used by holdings/save and the
+    weekly 'align' job. A long<->short flip produces two trades: a close (sell/cover)
+    followed by a re-open (buy/short). Execution is refused when the recommendation
+    is stale (default DEFAULT_STALE_DAYS days).
+    """
+    port = _portfolio(code)
+    portfolio_id = port['id']
+    initial_capital = float(port['initial_capital'])
+    instrument_id = payload.instrument_id
+
+    wl = execute_query(
+        "SELECT 1 FROM portfolio_instrument WHERE portfolio_id = %s AND instrument_id = %s",
+        (portfolio_id, instrument_id),
+    )
+    if not wl:
+        raise HTTPException(status_code=422, detail="Instrument is not in the portfolio watchlist")
+
+    # Global latest recommendation date: the stale guard applies to the whole
+    # recommendation set (an instrument absent from it means "close the position").
+    latest_rows = execute_query(
+        "SELECT MAX(rec_date) AS rec_date FROM portfolio_recommendation WHERE portfolio_id = %s",
+        (portfolio_id,),
+    )
+    latest_date = latest_rows[0]['rec_date'] if latest_rows else None
+    if latest_date is None:
+        raise HTTPException(status_code=422, detail="No recommendations available for this portfolio")
+
+    rec_date_iso = latest_date.isoformat() if hasattr(latest_date, 'isoformat') else str(latest_date)
+    age_days = (date.today() - latest_date).days if hasattr(latest_date, '__sub__') else 0
+    if age_days > stale_days:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Recommendation is stale (rec_date={rec_date_iso}, age={age_days}d "
+                f"> {stale_days}d). Rerun the pipeline before executing."
+            ),
+        )
+
+    # Target at the latest date. An absent recommendation, a zero target or a short
+    # that rounds to zero all mean "close the position" (empty target).
+    rec_rows = execute_query("""
+        SELECT pr.side, pr.target_qty
+        FROM portfolio_recommendation pr
+        WHERE pr.portfolio_id = %s AND pr.instrument_id = %s AND pr.rec_date = %s
+    """, (portfolio_id, instrument_id, latest_date))
+    target = {}
+    if rec_rows:
+        rec = rec_rows[0]
+        side = rec['side']
+        qty = float(rec['target_qty'] or 0)
+        if side == 'short':
+            qty = round_short_qty(qty)
+        if qty > 0:
+            target = {instrument_id: {"side": side, "qty": qty, "avg_price": None}}
+
+    cur_rows = execute_query("""
+        SELECT pp.qty, pp.avg_price
+        FROM portfolio_position pp
+        WHERE pp.portfolio_id = %s AND pp.instrument_id = %s
+        AND pp.pos_date = (SELECT MAX(pos_date) FROM portfolio_position
+                           WHERE portfolio_id = %s AND instrument_id = %s)
+    """, (portfolio_id, instrument_id, portfolio_id, instrument_id))
+    current = {}
+    if cur_rows:
+        current[instrument_id] = {
+            "qty": float(cur_rows[0]['qty'] or 0),
+            "avg_price": float(cur_rows[0]['avg_price']) if cur_rows[0]['avg_price'] else None,
+        }
+
+    close_rows = execute_query("""
+        SELECT pd.close FROM price_daily pd
+        WHERE pd.instrument_id = %s
+        AND pd.trade_date = (SELECT MAX(trade_date) FROM price_daily
+                             WHERE instrument_id = %s AND close IS NOT NULL)
+    """, (instrument_id, instrument_id))
+    close_map = {instrument_id: float(close_rows[0]['close'])} if close_rows else {}
+
+    trades, desired, snapshot_avg = build_trades(current, target, close_map, threshold_eur=None)
+
+    if not trades:
+        message = (
+            "Position already aligned with the recommended target."
+            if instrument_id in current
+            else "No position held and no recommendation to execute."
+        )
+        return {
+            "portfolio_code": code,
+            "instrument_id": instrument_id,
+            "rec_date": rec_date_iso,
+            "executed": False,
+            "trades_executed": 0,
+            "message": message,
+        }
+
+    trade_date = date.today().isoformat()
+
+    with get_db_connection(autocommit=False) as conn:
+        with conn.cursor() as cursor:
+            summary = apply_trades(
+                conn, cursor, portfolio_id, trade_date, trades, desired, current,
+                initial_capital, close_map, snapshot_avg=snapshot_avg,
+            )
+
+    return {
+        "portfolio_code": code,
+        "instrument_id": instrument_id,
+        "rec_date": rec_date_iso,
+        "executed": True,
+        "trade_date": trade_date,
+        "trades_executed": summary["trades_executed"],
+        "trades": [
+            {"side": side, "qty": qty, "price": price, "amount": amount}
+            for (_i, side, qty, price, amount) in trades
+        ],
+        "nav": summary["nav"],
+        "cash_balance": summary["cash_balance"],
+        "positions_value": summary["positions_value"],
+        "message": "Recommendation executed.",
     }

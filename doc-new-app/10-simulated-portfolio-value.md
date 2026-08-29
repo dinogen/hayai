@@ -3,9 +3,10 @@
 > **Natura del progetto**: esperimento personale da **€5.000**.
 > **Mai soldi veri**: il portafoglio tracciato è una **simulazione (paper trading)**.
 > Le posizioni del portafoglio attuale vengono gestite **manualmente** dalla pagina
-> "Portafoglio Attuale" (apertura/chiusura/modifica long e short) oppure allineate
-> alla raccomandazione del modello (Keras Quant + DeepSeek LLM) tramite il pulsante
-> "Applica Raccomandazioni". Il job notturno `nav` le rivaluta ogni giorno ai prezzi
+> "Portafoglio Attuale" (apertura/chiusura/modifica long e short) oppure eseguite
+> riga per riga dalle raccomandazioni del modello (Keras Quant + DeepSeek LLM) tramite
+> la **Tabella di Riconciliazione** della pagina "Composizione Consigliata" (bottone
+> **"Esegui"**, vedi `06-api-and-webapp.md`). Il job notturno `nav` le rivaluta ogni giorno ai prezzi
 > di mercato reali (**mark-to-market**) senza alterare le quantità. Lo scopo è
 > **testare il modello in tempo reale**: se il modello ha ragione il NAV sale,
 > se sbaglia scende. Il capitale di riferimento €5.000 è il metro di misura, non denaro reale.
@@ -43,9 +44,12 @@ Questo documento definisce il piano per aggiungere:
 ### 2.1 Applicazione delle raccomandazioni
 Il job notturno **non allinea** le posizioni al modello: fa solo mark-to-market. L'allineamento
 avviene in due modi:
-- **Manuale**: pulsante **"Applica Raccomandazioni del Modello"** nella pagina "Portafoglio Attuale"
-  (o l'editor posizioni + SALVA): il sistema genera i trade necessari per portare le posizioni alla
-  composizione target (`qty = target_qty`, side del modello), chiudendo tutto ciò che non è in target.
+- **Manuale**: dalla pagina "Portafoglio Attuale" (editor posizioni + SALVA: registra i movimenti
+  reali fatti) oppure dalla **Tabella di Riconciliazione** della pagina "Composizione Consigliata"
+  (bottone **"Esegui"** per riga → `POST /holdings/execute`, che rilegge l'ultima raccomandazione dal
+  DB): il sistema genera i trade necessari per portare le posizioni alla composizione target
+  (`qty = target_qty`, side del modello), chiudendo tutto ciò che non è in target. In caso di flip
+  long↔short chiude la posizione e ne apre una nuova (`sell`/`cover` + `buy`/`short`).
 - **Automatico settimanale**: job batch **`align`**, schedulato **il martedì alle 15:20** (vedi
   `07-operativita-batch.md`), che allinea il portafoglio alle ultime raccomandazioni rispettando la
   soglia di tolleranza `rebalance_threshold_eur` (le variazioni same-direction sotto soglia restano
@@ -192,8 +196,9 @@ Nuova pagina Angular **`/config`** (voce "Configurazione" nella navbar) che perm
 - Le posizioni del portafoglio attuale sono **gestite manualmente** dalla pagina
   "Portafoglio Attuale" (vedi `piano-portafoglio-attuale.md`): ogni modifica viene
   registrata come operazione in `portfolio_trade` e il cash viene ricalcolato di
-  conseguenza. Il pulsante "Applica Raccomandazioni del Modello" allinea le posizioni
-  alla composizione target alla lettera.
+  conseguenza. Le raccomandazioni del modello si eseguono **riga per riga** dalla
+  **Tabella di Riconciliazione** della pagina "Composizione Consigliata" (bottone
+  **"Esegui"**), che in caso di flip long/short chiude la posizione e ne apre una nuova.
 - Il job notturno `nav` esegue **solo mark-to-market**: aggiorna `market_value` ai
   prezzi correnti senza modificare quantità e costo di carico.
 - Le posizioni **short** sono sempre in **quote intere** (arrotondamento aritmetico

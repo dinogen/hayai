@@ -60,7 +60,7 @@ Per permettere alla webapp di mostrare ogni giorno la composizione e il valore d
 1. **`portfolio_cash`**: Saldo della liquidità disponibile.
 2. **`portfolio_position`**: Le quote effettivamente "detenute" nel portafoglio simulato (o sincronizzate con le decisioni prese con il promotore).
 
-Quando il martedì decidi di seguire le raccomandazioni del sistema e compri/vendi con il promotore, registri l'operazione nella pagina **"Portafoglio Attuale"** (apertura/chiusura/modifica posizioni, o il pulsante "Applica Raccomandazioni del Modello" per allineare alla target alla lettera). Ogni operazione viene salvata in `portfolio_trade` e il cash ricalcolato; da quel momento in poi, la webapp calcola automaticamente il **Mark-to-Market giornaliero** senza alterare le posizioni manuali.
+Quando il martedì decidi di seguire le raccomandazioni del sistema e compri/vendi con il promotore, registri l'operazione nella pagina **"Portafoglio Attuale"** (apertura/chiusura/modifica posizioni) oppure la esegui **riga per riga** dalla **Tabella di Riconciliazione** della pagina "Composizione Consigliata" (bottone **"Esegui"** → `POST /holdings/execute`, che rilegge l'ultima raccomandazione dal DB). Ogni operazione viene salvata in `portfolio_trade` e il cash ricalcolato; da quel momento in poi, la webapp calcola automaticamente il **Mark-to-Market giornaliero** senza alterare le posizioni manuali.
 
 > **Allineamento automatico settimanale**: il job batch `align` (martedì alle 15:20, vedi
 > `07-operativita-batch.md`) esegue automaticamente questo allineamento alle raccomandazioni,

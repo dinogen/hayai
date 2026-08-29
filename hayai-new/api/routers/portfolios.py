@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from datetime import date, timedelta
 from app.db import execute_query
+from app.math_utils import round_short_qty
+from app.portfolio_rebalance import build_reconciliation
 import json
 import logging
 
@@ -143,48 +145,47 @@ def get_latest_recommendations(code: str):
             if not inst_data[inst_id]["current_price"] and cur_price:
                 inst_data[inst_id]["current_price"] = cur_price
 
-    def _fmt_qty(q: float) -> str:
-        return f"{q:.2f}"
+    # Signed current positions and targets, computed with the same logic as the
+    # execution (build_trades) so the reconciliation always shows exactly what
+    # executing each row will do (including long<->short side flips).
+    current = {}
+    for p in curr_pos:
+        current[int(p['instrument_id'])] = {
+            "qty": float(p['qty'] or 0),
+            "avg_price": float(p['avg_price']) if p.get('avg_price') else None,
+        }
+
+    target = {}
+    for r in recs:
+        inst_id = int(r['instrument_id'])
+        side = r.get('side', 'long')
+        qty = float(r['target_qty'] or 0)
+        if qty <= 0:
+            continue
+        if side == 'short':
+            qty = round_short_qty(qty)
+            if qty == 0:
+                continue
+        target[inst_id] = {"side": side, "qty": qty, "avg_price": None}
+
+    close_map = {}
+    for inst_id, data in inst_data.items():
+        if data["current_price"]:
+            close_map[inst_id] = float(data["current_price"])
+
+    rec_action = build_reconciliation(current, target, close_map, threshold_eur=rebalance_threshold)
 
     reconciliation = []
     for inst_id, data in inst_data.items():
-        owned = data["owned_qty"]
-        target = data["target_qty"]
-        price = data["current_price"]
-        
-        if owned == 0 and target > 0:
-            action = "buy"
-            diff = target
-            message = f"compra {_fmt_qty(target)} di questo"
-        elif owned > 0 and target == 0:
-            action = "sell"
-            diff = owned
-            message = "chiudi questa posizione"
-        elif owned > 0 and target > 0:
-            diff_qty = abs(target - owned)
-            diff_eur = diff_qty * price
-            if diff_eur < rebalance_threshold:
-                action = "hold"
-                diff = 0.0
-                message = "mantieni (invariato)"
-            elif target > owned:
-                diff = diff_qty
-                action = "buy"
-                message = f"compra {_fmt_qty(diff)} di questo"
-            elif target < owned:
-                diff = diff_qty
-                action = "sell"
-                message = f"vendi {_fmt_qty(diff)} di questo"
-            else:
-                diff = 0.0
-                action = "hold"
-                message = "mantieni (invariato)"
-        else:
+        act = rec_action.get(inst_id)
+        if act is None:
             continue
-
-        data["diff"] = diff
-        data["action"] = action
-        data["message"] = message
+        # Show the rounded short target so the table matches what execution does.
+        if data["target_side"] == "short" and inst_id in target and data["target_qty"]:
+            data["target_qty"] = float(target[inst_id]["qty"])
+        data["diff"] = act["diff_qty"]
+        data["action"] = act["action"]
+        data["message"] = act["message"]
         reconciliation.append(data)
 
     reconciliation.sort(key=lambda x: x['symbol'])
