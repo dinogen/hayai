@@ -207,6 +207,12 @@ Dopo aver apportato modifiche al codice (backend Python o frontend Angular) ed e
    npm run build
    ```
    * I file statici compilati vengono generati nella directory `dist/web` (o `dist/web/browser`), configurata come root di **nginx**.
+4. Deploy della SPA e del sito nginx con lo script versionato `scripts/deploy_web.sh` (copia la build in `/var/www/hayai`, installa `deploy/nginx-hayai.conf` in `/etc/nginx/sites-available/hayai`, rimuove il sito `default` se ancora linkato, esegue `nginx -t` e ricarica nginx):
+   ```bash
+   cd ~/hayai/hayai-new
+   sudo scripts/deploy_web.sh
+   ```
+   * Verifica finale: `curl -s http://127.0.0.1/api/health` deve rispondere `healthy` (reverse proxy API).
 
 ### 7.2 Aggiornamento del Backend (FastAPI)
 1. Spostarsi nella directory del progetto:
