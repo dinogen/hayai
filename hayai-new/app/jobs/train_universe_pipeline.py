@@ -100,14 +100,23 @@ def download_historical_data(period="5y"):
 
                 date_col = 'Date' if 'Date' in df.columns else df.columns[0]
 
+                def _to_float_or_none(col):
+                    val = row.get(col, 0)
+                    try:
+                        f = float(val)
+                    except (TypeError, ValueError):
+                        return None
+                    return None if np.isnan(f) else f
+
                 rows = []
                 for _, row in df.iterrows():
                     trade_date = pd.to_datetime(row[date_col]).strftime('%Y-%m-%d')
-                    o = float(row.get('Open', 0)) or None
-                    h = float(row.get('High', 0)) or None
-                    l = float(row.get('Low', 0)) or None
-                    c = float(row.get('Close', 0)) or None
-                    v = int(row.get('Volume', 0)) if not pd.isna(row.get('Volume', 0)) else 0
+                    o = _to_float_or_none('Open')
+                    h = _to_float_or_none('High')
+                    l = _to_float_or_none('Low')
+                    c = _to_float_or_none('Close')
+                    v_raw = row.get('Volume', 0)
+                    v = int(v_raw) if not pd.isna(v_raw) else 0
                     if c is None:
                         continue
                     rows.append((inst_id, trade_date, o, h, l, c, c, v))

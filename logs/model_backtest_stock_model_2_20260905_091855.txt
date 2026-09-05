@@ -1,0 +1,79 @@
+==============================================================================
+REPORT BACKTEST SELEZIONE LONG/SHORT — HAYAI v2
+==============================================================================
+Modello      : stock_model v2
+Artifact     : /home/dinogen/Progetti/hayai/model/stock_model/v2
+Portfolio    : main
+Data/ora     : 2026-09-05 09:18:55
+Strategia    : LONG top-5 / SHORT bottom-5 per quant_score
+Target       : ritorno forward a 5 giorni (log-ret; quant_score in unita' ln-return/vol_20)
+
+PANNELLO TEST (out-of-sample, 20% split random_state=42)
+  Righe test : 26662
+  Periodo    : 2021-12-01 -> 2026-08-28
+  Ribilanciamento non sovrapposto: ogni 5 giorni di trading (238 date)
+
+NOTA METODOLOGICA:
+  - Il pannello test contiene solo righe con target noto (senza look-ahead).
+  - Le date sovrapposte (t->t+5 e t+1->t+6) sono correlate: le statistiche 'tutte le date'
+    sono indicative; il P&L cumulato usa solo ribilanciamenti non sovrapposti.
+  - SPY potrebbe mancare in alcune date (NaN esclusi dalla media).
+
+==============================================================================
+1) RISULTATI OUT-OF-SAMPLE (solo test set)
+==============================================================================
+   TUTTE LE DATE TEST (sovrapposte):
+  Date di ribilanciamento : 1187
+  Ritorno medio LONG (top-N)        : +0.0066  (log-ret 5gg)
+  Ritorno medio SHORT (bottom-N)    : -0.0051  (log-ret 5gg)
+  Ritorno medio UNIVERSE (pari-peso): +0.0015  (log-ret 5gg)
+  Ritorno medio SPY                 : +0.0023  (log-ret 5gg)
+  Spread LONG - SHORT               : +0.0117
+  Spearman medio (quant_score vs ret): +0.1102
+  Hit-rate LONG > 0                 : +63.27%
+  Hit-rate SHORT < 0                : +55.27%
+  Hit-rate LONG > UNIVERSE          : +58.80%
+  Spread cumulato                   : +13.8728
+
+   DATE NON SOVRAPPOSTE (ogni 5, P&L cumulato):
+  Date di ribilanciamento : 237
+  Ritorno medio LONG (top-N)        : +0.0053  (log-ret 5gg)
+  Ritorno medio SHORT (bottom-N)    : -0.0048  (log-ret 5gg)
+  Ritorno medio UNIVERSE (pari-peso): +0.0017  (log-ret 5gg)
+  Ritorno medio SPY                 : +0.0044  (log-ret 5gg)
+  Spread LONG - SHORT               : +0.0101
+  Spearman medio (quant_score vs ret): +0.0848
+  Hit-rate LONG > 0                 : +60.34%
+  Hit-rate SHORT < 0                : +52.32%
+  Hit-rate LONG > UNIVERSE          : +55.27%
+  Spread cumulato                   : +2.3940
+
+==============================================================================
+2) RIFERIMENTO IN-SAMPLE (tutti i dati, ottimista)
+==============================================================================
+   TUTTE LE DATE (train+test):
+  Date di ribilanciamento : 1190
+  Ritorno medio LONG (top-N)        : +0.0151  (log-ret 5gg)
+  Ritorno medio SHORT (bottom-N)    : -0.0174  (log-ret 5gg)
+  Ritorno medio UNIVERSE (pari-peso): +0.0017  (log-ret 5gg)
+  Ritorno medio SPY                 : +0.0025  (log-ret 5gg)
+  Spread LONG - SHORT               : +0.0325
+  Spearman medio (quant_score vs ret): +0.1539
+  Hit-rate LONG > 0                 : +71.93%
+  Hit-rate SHORT < 0                : +68.57%
+  Hit-rate LONG > UNIVERSE          : +72.94%
+  Spread cumulato                   : +38.6988
+
+==============================================================================
+3) LETTURA RISULTATI
+==============================================================================
+  - Spread LONG-SHORT medio > 0  -> il ranking del quant_score separa vincenti e perdenti.
+  - Spearman medio ~ 0            -> nessun edge cross-sezionale (selezione ~casuale).
+  - Hit-rate LONG > UNIVERSE      -> il top-N batte l'equal-weight dell'universo.
+  - Confronta LONG/SHORT con UNIVERSE e SPY: la selezione deve batterli per avere valore.
+  - Attenzione: le stime in-sample (sezione 2) sono ottimistiche perche' il modello ha
+    gia' visto quei dati durante il training.
+
+==============================================================================
+FINE REPORT
+==============================================================================
