@@ -19,6 +19,7 @@ logger = setup_logger("app.jobs.news_rss")
 NEWS_TTL_SECONDS = 6 * 3600
 GOOGLE_NEWS_RSS = "https://news.google.com/rss/search"
 LOOKBACK_DAYS = 2
+DEDUP_DAYS = 14  # skips titles already ingested (yfinance feed) to avoid double sentiment
 
 _TAG_RE = re.compile(r"<[^>]+>")
 
@@ -97,6 +98,20 @@ def parse_rss_items(xml_text: str) -> list[dict]:
     return items
 
 
+def normalize_title(title: str) -> str:
+    """Normalize a title for duplicate comparison."""
+    return re.sub(r"\s+", " ", str(title or "").strip().lower())
+
+
+def load_existing_titles() -> set[str]:
+    """Titles already present in `news` within the dedup window (retention)."""
+    rows = execute_query(
+        "SELECT title FROM news WHERE title IS NOT NULL AND published_at >= DATE_SUB(NOW(), INTERVAL %s DAY)",
+        (DEDUP_DAYS,),
+    )
+    return {normalize_title(r['title']) for r in rows}
+
+
 def run_news_rss_job(portfolio_code: str = "main") -> dict:
     logger.info("Fetching active instruments for Google News RSS ingestion...")
     query = """
@@ -110,6 +125,9 @@ def run_news_rss_job(portfolio_code: str = "main") -> dict:
     if not instruments:
         logger.warning(f"No active instruments found for portfolio '{portfolio_code}'.")
         return {"instruments_processed": 0, "items_fetched": 0, "news_inserted": 0}
+
+    existing_titles = load_existing_titles()
+    logger.info(f"Loaded {len(existing_titles)} existing titles for dedup (window {DEDUP_DAYS} days).")
 
     session = requests.Session()
     session.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -159,13 +177,19 @@ def run_news_rss_job(portfolio_code: str = "main") -> dict:
 
                 total_fetched += len(rss_items)
                 rows = []
+                seen_titles = set()
                 for item in rss_items:
                     source_id = item['link'][:255]
                     if not source_id:
                         continue
+                    title = item.get('title', '')
+                    norm = normalize_title(title)
+                    if not norm or norm in existing_titles or norm in seen_titles:
+                        continue
+                    seen_titles.add(norm)
                     rows.append((
                         source_id, inst_id,
-                        item.get('title', ''),
+                        title,
                         item.get('publisher'),
                         item.get('link'),
                         item.get('published_at'),
@@ -175,6 +199,8 @@ def run_news_rss_job(portfolio_code: str = "main") -> dict:
                 if rows:
                     cursor.executemany(upsert_query, rows)
                     total_inserted += cursor.rowcount
+                    for row in rows:
+                        existing_titles.add(normalize_title(row[2]))
                     processed += 1
                     logger.info(f"Upserted {len(rows)} news items for {symbol}.")
 

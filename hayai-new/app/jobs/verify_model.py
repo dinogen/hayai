@@ -9,7 +9,7 @@ import onnxruntime as ort
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 
-from app.config import settings
+from app.config import resolve_model_artifact_path, settings
 from app.db import execute_query
 from app.jobs.dataset_builder import build_training_dataset, read_model_config, split_by_cutoffs
 from app.logging_setup import setup_logger
@@ -76,7 +76,7 @@ def run_verify_model_job(portfolio_code: str = "main", model_version: str = None
 
     model_name = model_info.get("name", "stock_model")
     model_version = model_info.get("version", "v1")
-    artifact_path = Path(model_info["artifact_path"])
+    artifact_path = resolve_model_artifact_path(model_info["artifact_path"])
     feature_cols = json.loads(model_info["feature_columns"])
     label_min_model = float(model_info["label_min"])
     label_max_model = float(model_info["label_max"])

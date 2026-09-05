@@ -1,10 +1,10 @@
 import json
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import onnxruntime as ort
 
+from app.config import resolve_model_artifact_path
 from app.db import execute_query, get_db_connection
 from app.jobs.dataset_builder import compute_panel_features
 from app.logging_setup import setup_logger
@@ -31,7 +31,7 @@ def run_predict_job(portfolio_code: str = "main") -> dict:
 
     model_info = model_rows[0]
     model_id = model_info['id']
-    artifact_path = Path(model_info['artifact_path'])
+    artifact_path = resolve_model_artifact_path(model_info['artifact_path'])
     feature_cols = json.loads(model_info['feature_columns'])
     label_min = float(model_info['label_min'])
     label_max = float(model_info['label_max'])
