@@ -8,7 +8,7 @@ import pandas as pd
 import onnxruntime as ort
 from sklearn.model_selection import train_test_split
 
-from app.config import settings
+from app.config import resolve_model_artifact_path, settings
 from app.jobs.dataset_builder import build_training_dataset, read_model_config, split_by_cutoffs
 from app.jobs.verify_model import _load_model, _load_onnx_session
 from app.logging_setup import setup_logger
@@ -66,7 +66,7 @@ def run_backtest_job(portfolio_code: str = "main", top_n: int = 5, bottom_n: int
 
     model_name = model_info.get("name", "stock_model")
     model_version = model_info.get("version", "v1")
-    artifact_path = Path(model_info["artifact_path"])
+    artifact_path = resolve_model_artifact_path(model_info["artifact_path"])
     feature_cols = json.loads(model_info["feature_columns"])
     label_min_model = float(model_info["label_min"])
     label_max_model = float(model_info["label_max"])

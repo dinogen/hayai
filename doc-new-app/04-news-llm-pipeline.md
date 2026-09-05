@@ -11,12 +11,32 @@ markdown per la webapp.
 
 ---
 
-## 1. Acquisizione Notizie (`job news`)
+## 1. Acquisizione Notizie (`job news` + `job news_rss`)
 
-Ogni notte, il batch esegue l'ingestione delle notizie:
+Ogni notte, il batch esegue l'ingestione delle notizie da **due sorgenti** che
+alimentano la stessa tabella `news`:
+
+**1a. `job news` — yfinance per ticker**
 1. Interroga la tabella `portfolio_instrument` per ottenere tutti i simboli attivi.
 2. Per ogni simbolo, richiama `yfinance.Ticker(symbol).news`.
 3. Filtra ed effettua l'**upsert** nella tabella `news` usando il campo nativo `id` di yfinance come `source_id` (garantendo l'idempotenza e prevenendo duplicati).
+
+> Nota: yfinance espone solo le ~10 top-stories più recenti per simbolo; per ETF,
+> indici e titoli di tasso queste sono spesso headline macro condivise dall'intero
+> universo. Il job `news_rss` (punto 1b) compensa questa scarsità coprendo le
+> notizie specifiche dell'azienda.
+
+**1b. `job news_rss` — Google News RSS per azienda**
+1. Per ogni strumento interroga il feed RSS di Google News con query
+   `"SIMBOLO" OR "nome società"` (link diretto all'azienda, non top-stories di mercato).
+2. Effettua un **dedup per titolo** contro le notizie già presenti in `news` nella
+   finestra di retention (default 14 giorni): la stessa notizia coperta sia da
+   yfinance sia da Google (che hanno `source_id` diversi) viene salvata una sola
+   volta, evitando il doppio conteggio nell'analisi sentiment.
+3. Upsert nella tabella `news` con `source_id = link` dell'articolo Google News.
+
+Entrambe le sorgenti producono righe in `news` "pending" (senza `news_sentiment`):
+il job `sentiment` le analizza in ordine di inserimento nella successiva esecuzione.
 
 ---
 

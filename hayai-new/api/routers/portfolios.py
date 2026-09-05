@@ -261,7 +261,7 @@ def get_portfolio_signals(code: str):
     portfolio_id = port[0]['id']
     signals = execute_query("""
         SELECT ps.signal_date, ps.quant_score, ps.llm_sentiment_modifier, ps.final_signal, ps.ai_rationale, ps.sentiment_breakdown,
-        i.symbol, i.name, i.instrument_type
+        i.symbol, i.name, i.instrument_type, i.area, i.sector
         FROM portfolio_signal ps
         JOIN instrument i ON ps.instrument_id = i.id
         WHERE ps.portfolio_id = %s

@@ -16,17 +16,18 @@ python -m app.cli <job_name> [--portfolio <code>]
 ### Elenco dei Job Notturni
 1. **`data`**: Scarica i prezzi giornalieri OHLCV, forex e indici da yfinance e fa l'upsert in `price_daily`, `fx_rate`, `index_value`. Usa una cache parquet (TTL 24h) per evitare richieste ripetute; con il flag `--refresh` salta la cache e riscarica gli ultimi 5 giorni (usato per gli aggiornamenti intraday, vedi §3).
 2. **`metadata`**: Scarica settore, country e area degli strumenti (`sector`/`category`, `country`) da yfinance e aggiorna `instrument`. Salta gli strumenti aggiornati da meno di 30 giorni, oppure forza il refresh con `--force`.
-3. **`news`**: Scarica le notizie recenti per tutti gli strumenti attivi e le salva in `news`.
-4. **`sentiment`**: Invia le nuove notizie alle API di **DeepSeek**, ricava sentiment, confidence e rationale, e popola `news_sentiment`. **Viene saltato se `NEWS_LLM_ENABLED=false`** (vedi §2): in tal caso termina con stato `disabled` senza consumare token.
-5. **`predict`**: Esegue l'inferenza ONNX (`model_prediction`) utilizzando i modelli attivi in `model_registry`.
-6. **`signal`**: Combina `model_prediction` e `news_sentiment` per calcolare il segnale ibrido in `portfolio_signal`.
-7. **`recommend`**: Calcola i pesi finali long/short e popola `portfolio_recommendation`.
-8. **`nav`**: Mark-to-Market giornaliero: allinea le posizioni simulate alla raccomandazione e calcola NAV/cash in `portfolio_position` e `portfolio_cash`.
-9. **`summaries`**: Compila il riassunto in Markdown per portafoglio e lo salva in `news_summary`.
-10. **`cleanup`**: Elimina le notizie (e relative `news_sentiment` in cascata) più vecchie di 14 giorni e i file cache parquet scaduti in `tmp/`. Il periodo di retention è configurabile con `--days` (default 14).
+3. **`news`**: Scarica le notizie recenti per tutti gli strumenti attivi da yfinance (`Ticker.news`) e le salva in `news`.
+4. **`news_rss`**: Scarica le notizie per-azienda da **Google News RSS** (query `"SIMBOLO" OR "nome"`), con **dedup per titolo** contro le notizie già in tabella (finestra retention) per evitare duplicati tra le due sorgenti; upsert in `news`. Inserito tra `news` e `sentiment` così le notizie fresche vengono analizzate nella stessa notte.
+5. **`sentiment`**: Invia le nuove notizie alle API di **DeepSeek**, ricava sentiment, confidence e rationale, e popola `news_sentiment`. **Viene saltato se `NEWS_LLM_ENABLED=false`** (vedi §2): in tal caso termina con stato `disabled` senza consumare token.
+6. **`predict`**: Esegue l'inferenza ONNX (`model_prediction`) utilizzando i modelli attivi in `model_registry`.
+7. **`signal`**: Combina `model_prediction` e `news_sentiment` per calcolare il segnale ibrido in `portfolio_signal`.
+8. **`recommend`**: Calcola i pesi finali long/short e popola `portfolio_recommendation`.
+9. **`nav`**: Mark-to-Market giornaliero: allinea le posizioni simulate alla raccomandazione e calcola NAV/cash in `portfolio_position` e `portfolio_cash`.
+10. **`summaries`**: Compila il riassunto in Markdown per portafoglio e lo salva in `news_summary`.
+11. **`cleanup`**: Elimina le notizie (e relative `news_sentiment` in cascata) più vecchie di 14 giorni e i file cache parquet scaduti in `tmp/`. Il periodo di retention è configurabile con `--days` (default 14).
 
 ### Job Settimanale (fuori dal ciclo notturno)
-11. **`align`**: **Allineamento del portafoglio alle raccomandazioni**, schedulato **una volta a
+12. **`align`**: **Allineamento del portafoglio alle raccomandazioni**, schedulato **una volta a
     settimana, il martedì alle 15:20** (dopo il refresh prezzi intraday delle 15:00, così i trade
     usano prezzi freschi). NON fa parte del ciclo giornaliero.
     - Legge l'ultima `rec_date` da `portfolio_recommendation` e genera i trade necessari per portare

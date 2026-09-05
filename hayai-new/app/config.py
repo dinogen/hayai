@@ -30,6 +30,17 @@ def _env_value_in_file(key: str) -> str | None:
     return None
 
 
+def resolve_model_artifact_path(value: str) -> Path:
+    """Return the absolute path of a model artifact folder stored in
+    model_registry. Relative paths (e.g. 'model/stock_model/v2' as seeded)
+    are resolved against the hayai-new project root so batch jobs work
+    regardless of the working directory they are launched from."""
+    p = Path(value)
+    if p.is_absolute():
+        return p
+    return Path(__file__).resolve().parent.parent / p
+
+
 def get_news_llm_enabled() -> bool:
     """Current value of the NEWS_LLM_ENABLED flag.
 

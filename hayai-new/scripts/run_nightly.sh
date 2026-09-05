@@ -52,6 +52,7 @@ JOBS=(
   "data"
   "metadata"
   "news"
+  "news_rss"
   "sentiment"
   "predict"
   "signal"

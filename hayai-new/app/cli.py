@@ -8,6 +8,7 @@ from app.logging_setup import setup_logger
 from app.jobs.data import run_data_job
 from app.jobs.metadata import run_metadata_job
 from app.jobs.news import run_news_job
+from app.jobs.news_rss import run_news_rss_job
 from app.jobs.cleanup import run_cleanup_job
 from app.jobs.sentiment import run_sentiment_job
 from app.jobs.predict import run_predict_job
@@ -27,6 +28,7 @@ JOBS_MAP = {
     "data": run_data_job,
     "metadata": run_metadata_job,
     "news": run_news_job,
+    "news_rss": run_news_rss_job,
     "cleanup": run_cleanup_job,
     "sentiment": run_sentiment_job,
     "predict": run_predict_job,
