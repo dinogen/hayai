@@ -17,6 +17,8 @@ from app.jobs.backtest_selection import run_backtest_job
 from app.jobs.signal import run_signal_job
 from app.jobs.recommend import run_recommend_job
 from app.jobs.nav import run_nav_job
+from app.jobs.diagnostic import run_diagnostic_job
+from app.jobs.train_clean_chronological import run_clean_chronological_training_job
 from app.jobs.summaries import run_summaries_job
 from app.jobs.align import run_align_job
 from app.jobs.universe import run_universe_job
@@ -37,6 +39,8 @@ JOBS_MAP = {
     "signal": run_signal_job,
     "recommend": run_recommend_job,
     "nav": run_nav_job,
+    "diagnostic": run_diagnostic_job,
+    "train_clean": run_clean_chronological_training_job,
     "summaries": run_summaries_job,
     "align": run_align_job,
     "universe": run_universe_job,
@@ -62,10 +66,22 @@ def main():
     parser.add_argument("--refresh", action="store_true", help="Bypass the price cache and download fresh data (data job)")
     parser.add_argument("--days", type=int, default=None, help="Retention days for cleanup or stale days for align (job-specific defaults apply)")
     parser.add_argument("--version", type=str, default=None, help="Model version for verify/backtest (default: active model)")
+    parser.add_argument("--compare-version", type=str, default="v4", help="Optional second model version for diagnostic comparison")
+    parser.add_argument("--output-dir", type=str, default=None, help="Output directory for diagnostic Markdown and CSV")
     
     args = parser.parse_args()
     job_name = args.job
     portfolio_code = args.portfolio
+
+    if job_name == "diagnostic":
+        result_details = run_diagnostic_job(
+            portfolio_code=portfolio_code,
+            model_version=args.version or "v2",
+            output_dir=args.output_dir,
+            compare_version=args.compare_version,
+        )
+        logger.info("Diagnostic completed: %s", result_details)
+        return
 
     logger.info(f"Starting job '{job_name}' for portfolio '{portfolio_code}'...")
     job_id = log_job_start(job_name)

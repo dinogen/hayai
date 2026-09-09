@@ -208,11 +208,19 @@ scaler e label fittati solo sul train e test **mai visto dall'early stopping** (
 - Backtest (36 ribilanciamenti non sovrapposti): Spearman **+0.077**, LONG +0.57% vs SPY +0.36%
   vs universo +0.39% per 5gg, SHORT ≈ rumore (hit-rate 50%), spread cumulato +0.41.
 
-**Interpretazione**: l'edge cross-sezionale reale è molto più debole di quanto suggerissero i
-numeri random-split. Resta un **tilt long-only** del top-5 che batte leggermente SPY (il lato
-più difendibile), mentre il lato short e l'RMSE non hanno valore predittivo robusto. La parte
-quant va quindi trattata come input debole dell'ibrido, con il modificatore LLM dominante.
+**Esperimento clean chronological (`v5_clean_time`)** — la pipeline è stata corretta per
+applicare winsorization e scaling **solo sui dati di training**, senza leakage dal validation/test.
+Il risultato sul holdout resta però debole: Spearman ~0.03, R² ~−0.014, hit-rate ~46.6%.
+Questo conferma che il problema non è solo il leakage del preprocessing, ma anche la reale
+capienza predittiva del set di feature e del target analizzato.
 
-**Esperimento v3**: l'aggiunta di `dow_sin`/`dow_cos` e `days_since_high` non ha aiutato la
-selezione (Spearman 0.133 vs 0.174 sul random split). **v2 resta il modello attivo e di
-produzione**.
+**Interpretazione**: l'edge cross-sezionale reale è molto più debole di quanto suggerissero i
+numeri random-split. Resta un **tilt long-only** del top-5 che in alcuni window batte leggermente
+SPY, ma la forza predittiva complessiva è insufficiente per la produzione. La parte quant va
+quindi trattata come input debole dell'ibrido, con il modificatore LLM dominante. In assenza di
+un nuovo segnale più forte, il modello attivo non va promosso come production-ready.
+
+**Decisione**: nessun modello attivo viene promosso come production in questa iterazione. Il
+ruolo del quant rimane debole e sperimentale; il prossimo ciclo deve concentrarsi su un nuovo
+feature set, una nuova definizione del target o una segmentazione di mercato più solida prima di
+riprendere la scelta del modello attivo.
