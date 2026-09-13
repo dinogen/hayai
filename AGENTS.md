@@ -44,19 +44,19 @@ Consulta SEMPRE questi documenti prima di scrivere o modificare qualsiasi codice
 | `02-database-schema.md` | DDL MariaDB completo (tabelle, indici, NAV cash/posizioni) |
 | `03-ml-pipeline.md` | Training su PC (Jupyter) → ONNX → inferenza batch sul Pi |
 | `04-news-llm-pipeline.md` | Ingestione notizie yfinance + prompt strutturato JSON per DeepSeek API |
-| `05-portfolio-optimization.md` | Selezione top long / bottom short, allocazione importi su €5.000 |
-| `06-api-e-webapp.md` | API FastAPI REST + Viste Angular (Schede Tesi di Investimento) |
+| `06-api-and-webapp.md` | API FastAPI REST + Viste Angular (Schede Tesi di Investimento) |
 | `07-operativita-batch.md` | CLI batch, pianificazione cron notturna, deploy nativo Raspberry Pi |
-| `08-portfolio-lifecycle.md` | Giorno 1 (bootstrap), Mark-to-Market giornaliero, gestione universo |
+| `08-portfolio-lifecycle.md` | Giorno 1 (bootstrap), Mark-to-Market, gestione universo, allocazione long/short |
 | `09-ui-ux-design-system.md` | Design System "Cyber Light HUD" (temi, font futuristiche, card tesi) |
 | `10-simulated-portfolio-value.md` | Tracciamento NAV, Mark-to-Market giornaliero e config portafoglio |
+| `11-maintenance-manual.md` | File `.bat` Windows di avvio, checklist di primo soccorso |
 
 ## 5. Regole Operative per gli Agenti
 
-2. **Consulta `doc-new-app/` prima di agire**: ogni dubbio su tabelle, flussi o API trova risposta nei documenti di progetto.
-3. **Rispetta le convenzioni**: codice in inglese, documentazione e commenti complessi in italiano (dove richiesto).
-4. **Chiedi in caso di ambiguità**: se un requisito non è chiaro nei documenti, fermati e chiedi prima di implementare.
-5. **Ogni volta che crei un piano operativo** (lavoro multi-task), carica la skill `crea-piano` (`.opencode/skills/crea-piano/SKILL.md`): il piano va salvato in un file che inizia per `piano` e ogni task numerato deve avere stato, scopo, risultato atteso e todolist (modello di riferimento: `piano-training-modello.md`).
-6. **Installa sempre i moduli mancanti**: puoi installare liberamente i moduli Python nel `venv` (`venv\Scripts\python -m pip install ...`) e i moduli Node.js in `hayai-new\web` (`npm.cmd install ...`). Se qualcosa ti manca, installalo invece di cercare workaround o bypass; in caso di dubbio sulla scelta del modulo, chiedi all'utente.
-7. **Shell disponibili su Windows**: puoi usare PowerShell, `bash`, `node` e `python`. Se PowerShell è limitato (es. rendering UTF-8, comandi Unix), usa il Git Bash di sistema: `C:\Users\semboli\AppData\Local\Programs\Git\git-bash.exe` (o `bash.exe` in `C:\Users\semboli\AppData\Local\Programs\Git\bin\`). L'installazione di node è in `C:\node\node-v24.18.0-win-x64`
-8. **Shell su GNU/Linux**: bash, node, python 
+1. **Consulta `doc-new-app/` prima di agire**: ogni dubbio su tabelle, flussi o API trova risposta nei documenti di progetto.
+2. **Rispetta le convenzioni**: codice in inglese, documentazione e commenti complessi in italiano (dove richiesto).
+3. **Chiedi in caso di ambiguità**: se un requisito non è chiaro nei documenti, fermati e chiedi prima di implementare.
+4. **Ogni volta che crei un piano operativo** (lavoro multi-task), carica la skill `crea-piano` (`.opencode/skills/crea-piano/SKILL.md`): il piano va salvato in un file che inizia per `piano` e ogni task numerato deve avere stato, scopo, risultato atteso e todolist (modello di riferimento: `piano-training-modello.md`).
+5. **Installa sempre i moduli mancanti**: puoi installare liberamente i moduli Python nel `venv` (`venv\Scripts\python -m pip install ...`) e i moduli Node.js in `hayai-new\web` (`npm.cmd install ...`). Se qualcosa ti manca, installalo invece di cercare workaround o bypass; in caso di dubbio sulla scelta del modulo, chiedi all'utente.
+6. **Shell disponibili su Windows**: puoi usare PowerShell, `bash`, `node` e `python`. Se PowerShell è limitato (es. rendering UTF-8, comandi Unix), usa il Git Bash di sistema: `C:\Users\semboli\AppData\Local\Programs\Git\git-bash.exe` (o `bash.exe` in `C:\Users\semboli\AppData\Local\Programs\Git\bin\`). L'installazione di node è in `C:\node\node-v24.18.0-win-x64`
+7. **Shell su GNU/Linux**: bash, node, python 

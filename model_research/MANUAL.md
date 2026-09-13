@@ -1,5 +1,14 @@
 # Hayai V2 — Model Research — Manuale operativo
 
+> **RICERCA CONCLUSA — Settembre 2026**
+> Nessuno degli esperimenti EXP-001..EXP-016 ha superato il modello v2 attivo.
+> Il segnale cross-sezionale più forte (EXP-005 + macro) ha raggiunto Spearman ≈ +0.016
+> sul test set — troppo debole per giustificare un cambio di modello.
+> **Il modello `stock_model v2` (24 feature, MLP 100-80-20-1) rimane in produzione.**
+> Il codice e i risultati di questa ricerca sono conservati a fini di riferimento storico.
+
+---
+
 ## Setup iniziale
 
 ```powershell
