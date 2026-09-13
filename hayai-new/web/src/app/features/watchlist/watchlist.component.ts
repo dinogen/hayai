@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+import { WatchlistChartComponent } from './watchlist-chart.component';
 
 interface WatchlistRow {
   instrument_id: number;
@@ -33,7 +34,7 @@ interface PositionSave {
 @Component({
   selector: 'app-watchlist',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, WatchlistChartComponent],
   template: `
     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
 
@@ -164,6 +165,9 @@ interface PositionSave {
                 </div>
               </div>
             </div>
+
+            <!-- Mini chart -->
+            <app-watchlist-chart [symbol]="row.symbol" style="display: block; margin: 0 -1.5rem;"></app-watchlist-chart>
 
             <!-- Actions -->
             <div class="action-row">
