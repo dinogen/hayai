@@ -1,0 +1,250 @@
+# Hayai V2 — Experiment Registry
+# Each experiment must have a unique ID (EXP-NNN).
+# Results are saved to experiments/results/EXP-NNN/
+#
+# Status: planned | running | done | failed
+
+experiments:
+
+  - id: EXP-001
+    name: Momentum baseline
+    description: >
+      Non-ML baseline. Rank stocks by momentum at multiple horizons.
+      This is the minimum bar the neural network must beat.
+    status: planned
+    model: baseline
+    targets: [5, 10, 15]
+    window: null
+    universe_size: 90
+    features: momentum_only
+    split: walk_forward
+    seed: 42
+    variants:
+      - random
+      - equal_weight
+      - mom_5d
+      - mom_20d
+      - mom_vol_adj
+
+  - id: EXP-002
+    name: DNN linear output
+    description: >
+      Baseline DNN: 20-day window, flatten, 3 Dense layers, 3 outputs (Y5/Y10/Y15).
+      Output activation: linear. Loss: MSE.
+    status: planned
+    model: dnn
+    targets: [5, 10, 15]
+    window: 20
+    universe_size: 90
+    features: stock_only
+    output_activation: linear
+    loss: mse
+    architecture:
+      layers: [128, 64, 32]
+    split: walk_forward
+    seed: 42
+
+  - id: EXP-003
+    name: DNN scaled arctan output
+    description: >
+      Identical to EXP-002 but output activation is scaled arctan: 3*(2/pi)*atan(x).
+      Constrains output to (-3, +3) without hard clipping.
+      Uses lr=1e-4 + dropout=0.2 (best config from diagnostics).
+    status: planned
+    model: dnn
+    targets: [5, 10, 15]
+    window: 20
+    universe_size: 90
+    features: stock_only
+    output_activation: arctan
+    loss: mse
+    dropout: 0.2
+    architecture:
+      layers: [128, 64, 32]
+    split: walk_forward
+    seed: 42
+
+  - id: EXP-004
+    name: DNN stock features only
+    description: >
+      Best DNN from EXP-002/003 trained with stock OHLCV features only.
+      No macro inputs. Ablation baseline.
+    status: planned
+    model: dnn
+    targets: [5, 10, 15]
+    window: 20
+    universe_size: 90
+    features: stock_only
+    split: walk_forward
+    seed: 42
+
+  - id: EXP-005
+    name: DNN stock + equity indices
+    description: >
+      Add equity index series (S&P500, NASDAQ, Russell, VIX) as macro features.
+      Uses lr=1e-4 + dropout=0.2 (best config from diagnostics).
+      Dataset: dataset_w20_indices.npz  X=(n, 20, 42)
+    status: planned
+    model: dnn
+    targets: [5, 10, 15]
+    window: 20
+    universe_size: 90
+    features: stock_plus_indices
+    dropout: 0.2
+    split: walk_forward
+    seed: 42
+
+  - id: EXP-006
+    name: DNN stock + indices + commodities
+    description: >
+      Add commodities (Oil, Copper, Gold, Silver) on top of EXP-005.
+    status: planned
+    model: dnn
+    targets: [5, 10, 15]
+    window: 20
+    universe_size: 90
+    features: stock_plus_indices_commodities
+    split: walk_forward
+    seed: 42
+
+  - id: EXP-007
+    name: DNN full macro
+    description: >
+      All macro inputs: indices + commodities + rates + FX.
+    status: planned
+    model: dnn
+    targets: [5, 10, 15]
+    window: 20
+    universe_size: 90
+    features: full_macro
+    split: walk_forward
+    seed: 42
+
+  - id: EXP-008
+    name: DNN window 10 days
+    description: Window ablation — 10 trading days.
+    status: planned
+    model: dnn
+    targets: [5, 10, 15]
+    window: 10
+    universe_size: 90
+    features: stock_only
+    split: walk_forward
+    seed: 42
+
+  - id: EXP-009
+    name: DNN window 20 days
+    description: Window ablation — 20 trading days (reference).
+    status: planned
+    model: dnn
+    targets: [5, 10, 15]
+    window: 20
+    universe_size: 90
+    features: stock_only
+    split: walk_forward
+    seed: 42
+
+  - id: EXP-010
+    name: DNN window 40 days
+    description: Window ablation — 40 trading days.
+    status: planned
+    model: dnn
+    targets: [5, 10, 15]
+    window: 40
+    universe_size: 90
+    features: stock_only
+    split: walk_forward
+    seed: 42
+
+  - id: EXP-011
+    name: 1D CNN
+    description: >
+      Replace DNN flatten with 1D CNN: Conv1D → Conv1D → Dense → 3 outputs.
+      Uses lr=1e-4 + dropout=0.2 (best config from diagnostics).
+    status: planned
+    model: cnn
+    targets: [5, 10, 15]
+    window: 20
+    universe_size: 90
+    features: stock_only
+    output_activation: linear
+    loss: mse
+    dropout: 0.2
+    architecture:
+      filters: [64, 32]
+      kernel_size: 3
+      dense_units: 32
+    split: walk_forward
+    seed: 42
+
+  - id: EXP-012
+    name: GRU
+    description: >
+      Recurrent model: GRU → Dense → 3 outputs.
+      Uses lr=1e-4 + dropout=0.2 + recurrent_dropout=0.1 (best config from diagnostics).
+    status: planned
+    model: gru
+    targets: [5, 10, 15]
+    window: 20
+    universe_size: 90
+    features: stock_only
+    output_activation: linear
+    loss: mse
+    dropout: 0.2
+    recurrent_dropout: 0.1
+    architecture:
+      units: [64]
+      dense_units: 32
+    split: walk_forward
+    seed: 42
+
+  - id: EXP-013
+    name: Best architecture + relative target
+    description: >
+      DNN linear + dropout=0.2 (best from diagnostics).
+      Target: excess return over S&P500 (market-relative alpha).
+      Dataset: dataset_w20_rel.npz
+    status: planned
+    model: dnn
+    targets: [5, 10, 15]
+    window: 20
+    universe_size: 90
+    features: stock_only_rel
+    dropout: 0.2
+    architecture:
+      layers: [128, 64, 32]
+    split: walk_forward
+    seed: 42
+
+  - id: EXP-014
+    name: Best model + portfolio optimization
+    description: >
+      Take the best model. Test different portfolio construction strategies
+      (top5, top10, top20pct, weighted, vol-adjusted).
+    status: planned
+    model: tbd
+    targets: [5, 10, 15]
+    window: 20
+    universe_size: 90
+    features: tbd
+    split: walk_forward
+    seed: 42
+
+  - id: EXP-015
+    name: Final walk-forward
+    description: >
+      Full walk-forward validation on the selected model and portfolio construction.
+    status: planned
+    model: tbd
+    split: walk_forward_full
+    seed: 42
+
+  - id: EXP-016
+    name: Final blind holdout
+    description: >
+      Single evaluation on the held-out period. Run only once.
+      Do not use results to make further model changes.
+    status: planned
+    model: tbd
+    split: final_holdout
+    seed: 42
