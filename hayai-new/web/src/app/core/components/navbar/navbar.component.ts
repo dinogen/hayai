@@ -20,12 +20,8 @@ import { AuthService } from '../../services/auth.service';
         <!-- Desktop Navigation -->
         <nav class="desktop-nav">
           <a routerLink="/" routerLinkActive="active-link" [routerLinkActiveOptions]="{exact: true}" class="nav-link">Dashboard</a>
-          <a routerLink="/portfolio" routerLinkActive="active-link" class="nav-link">Portafoglio Attuale</a>
           <a routerLink="/watchlist" routerLinkActive="active-link" class="nav-link">Watchlist</a>
-          <a routerLink="/recommendations" routerLinkActive="active-link" class="nav-link">Composizione Consigliata</a>
-          <a routerLink="/signals" routerLinkActive="active-link" class="nav-link">Segnali Ibridi</a>
-          <a routerLink="/news" routerLinkActive="active-link" class="nav-link">Notizie & AI</a>
-          <a routerLink="/config" routerLinkActive="active-link" class="nav-link">Configurazione</a>
+          <a routerLink="/config" routerLinkActive="active-link" class="nav-link">Config</a>
           <button *ngIf="auth.authenticated()" type="button" (click)="onLogout()" class="btn-logout-desktop">
             Esci
           </button>
@@ -56,12 +52,8 @@ import { AuthService } from '../../services/auth.service';
       </div>
       <nav class="drawer-nav">
         <a routerLink="/" routerLinkActive="active-link-drawer" [routerLinkActiveOptions]="{exact: true}" (click)="closeMenu()" class="drawer-link">Dashboard</a>
-        <a routerLink="/portfolio" routerLinkActive="active-link-drawer" (click)="closeMenu()" class="drawer-link">Portafoglio Attuale</a>
         <a routerLink="/watchlist" routerLinkActive="active-link-drawer" (click)="closeMenu()" class="drawer-link">Watchlist</a>
-        <a routerLink="/recommendations" routerLinkActive="active-link-drawer" (click)="closeMenu()" class="drawer-link">Composizione Consigliata</a>
-        <a routerLink="/signals" routerLinkActive="active-link-drawer" (click)="closeMenu()" class="drawer-link">Segnali Ibridi</a>
-        <a routerLink="/news" routerLinkActive="active-link-drawer" (click)="closeMenu()" class="drawer-link">Notizie & AI</a>
-        <a routerLink="/config" routerLinkActive="active-link-drawer" (click)="closeMenu()" class="drawer-link">Configurazione</a>
+        <a routerLink="/config" routerLinkActive="active-link-drawer" (click)="closeMenu()" class="drawer-link">Config</a>
         <button *ngIf="auth.authenticated()" type="button" (click)="onLogout(); closeMenu()" class="btn-logout-drawer">
           Esci
         </button>

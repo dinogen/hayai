@@ -1,0 +1,16 @@
+# Cache — parquet files are large and reproducible via downloader
+data/cache/*.parquet
+data/features/*.parquet
+
+# Trained model weights
+data/models/
+
+# Experiment outputs (keep registry.yaml but not raw results)
+experiments/results/*/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/

@@ -74,7 +74,33 @@ Quando il martedì decidi di seguire le raccomandazioni del sistema e compri/ven
 
 ---
 
-## 4. Aggiornamento Dinamico dell'Universo (Aggiunta/Rimozione Asset)
+## 4. Logica di Allocazione e Composizione Long/Short (`job recommend`)
+
+Ogni notte, dopo il calcolo del segnale ibrido in `portfolio_signal`, il batch calcola la composizione target:
+
+1. **Peso Grezzo (`weight_raw`)**: proporzionale a `final_signal / vol_20`.
+2. **Selezione Top/Bottom**:
+   - I migliori **`n_long`** strumenti (es. 5) con segnale positivo.
+   - I peggiori **`n_short`** strumenti (es. 3) con segnale negativo.
+3. **Cap sul totale (`max_assets`)**: se `n_long + n_short > max_assets` (es. 20), i due parametri vengono riproporzionati (`n_long = round(max_assets × n_long/(n_long+n_short))`, `n_short = max_assets − n_long`, con minimo 1 per lato). Il numero totale di raccomandazioni non supera mai `max_assets`; le raccomandazioni stale della stessa `rec_date` vengono eliminate prima dell'inserimento.
+4. **Normalizzazione**: la somma dei valori assoluti dei pesi è esattamente **1.0**.
+
+> La maggior parte degli strumenti dell'universo di training ha **peso 0** (non viene detenuta). Il portafoglio contiene solo gli strumenti top/bottom.
+
+### Dimensionamento per il Capitale di €5.000
+
+Con `risk_percentage = 0.90`:
+- **Capitale Investito Totale**: €5.000 × 0.90 = **€4.500** (il 10% resta come buffer di liquidità).
+- **Importo Target per Strumento (`target_amount`)**: `weight × €4.500`
+- **Quantità di Quote (`target_qty`)**: `round(target_amount / prezzo corrente)`
+
+> **Regola short interi**: gli short sono sempre espressi in **quote intere** con arrotondamento aritmetico (half-up: `floor(x + 0.5)`). Se lo short arrotondato dà **0**, la raccomandazione non viene emessa.
+
+**Esempio**: AAPL long, peso 15% → importo €675 → se AAPL quota $225, `target_qty = round(675/225) = 3 quote`.
+
+---
+
+## 5. Aggiornamento Dinamico dell'Universo (Aggiunta/Rimozione Asset)
 
 Nel corso dei mesi, potresti voler aggiungere un nuovo ETF o rimuovere un'azione che non ti interessa più. La gestione avviene **dalla pagina Watchlist** della webapp:
 

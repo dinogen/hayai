@@ -1,0 +1,372 @@
+meta:
+  version: '1.0'
+  created: '2026-09-12'
+  total: 90
+  sectors:
+  - Technology
+  - AI_Software
+  - Semiconductors
+  - Biotech
+  - Defense
+stocks:
+- ticker: AAPL
+  company: Apple Inc.
+  sector: Technology
+  valid_from: '2015-01-01'
+- ticker: MSFT
+  company: Microsoft Corporation
+  sector: Technology
+  valid_from: '2015-01-01'
+- ticker: GOOGL
+  company: Alphabet Inc.
+  sector: Technology
+  valid_from: '2015-01-01'
+- ticker: AMZN
+  company: Amazon.com Inc.
+  sector: Technology
+  valid_from: '2015-01-01'
+- ticker: META
+  company: Meta Platforms Inc.
+  sector: Technology
+  valid_from: '2015-01-01'
+- ticker: TSLA
+  company: Tesla Inc.
+  sector: Technology
+  valid_from: '2015-01-01'
+- ticker: NFLX
+  company: Netflix Inc.
+  sector: Technology
+  valid_from: '2015-01-01'
+- ticker: ORCL
+  company: Oracle Corporation
+  sector: Technology
+  valid_from: '2015-01-01'
+- ticker: IBM
+  company: International Business Machines
+  sector: Technology
+  valid_from: '2015-01-01'
+- ticker: ADBE
+  company: Adobe Inc.
+  sector: Technology
+  valid_from: '2015-01-01'
+- ticker: CRM
+  company: Salesforce Inc.
+  sector: Technology
+  valid_from: '2015-01-01'
+- ticker: CSCO
+  company: Cisco Systems Inc.
+  sector: Technology
+  valid_from: '2015-01-01'
+- ticker: PLTR
+  company: Palantir Technologies
+  sector: AI_Software
+  valid_from: '2020-10-01'
+- ticker: DDOG
+  company: Datadog Inc.
+  sector: AI_Software
+  valid_from: '2019-09-01'
+- ticker: NET
+  company: Cloudflare Inc.
+  sector: AI_Software
+  valid_from: '2019-09-01'
+- ticker: S
+  company: SentinelOne Inc.
+  sector: AI_Software
+  valid_from: '2021-06-01'
+- ticker: PATH
+  company: UiPath Inc.
+  sector: AI_Software
+  valid_from: '2021-04-01'
+- ticker: AI
+  company: C3.ai Inc.
+  sector: AI_Software
+  valid_from: '2020-12-01'
+- ticker: IONQ
+  company: IonQ Inc.
+  sector: AI_Software
+  valid_from: '2021-10-01'
+- ticker: ESTC
+  company: Elastic NV
+  sector: AI_Software
+  valid_from: '2018-10-01'
+- ticker: GTLB
+  company: GitLab Inc.
+  sector: AI_Software
+  valid_from: '2021-10-01'
+- ticker: DBX
+  company: Dropbox Inc.
+  sector: AI_Software
+  valid_from: '2018-03-01'
+- ticker: SNOW
+  company: Snowflake Inc.
+  sector: AI_Software
+  valid_from: '2020-09-01'
+- ticker: OKTA
+  company: Okta Inc.
+  sector: AI_Software
+  valid_from: '2017-04-01'
+- ticker: RBRK
+  company: Rubrik Inc.
+  sector: AI_Software
+  valid_from: '2024-04-01'
+- ticker: SOUN
+  company: SoundHound AI Inc.
+  sector: AI_Software
+  valid_from: '2022-04-01'
+- ticker: PANW
+  company: Palo Alto Networks
+  sector: AI_Software
+  valid_from: '2015-01-01'
+- ticker: FTNT
+  company: Fortinet Inc.
+  sector: AI_Software
+  valid_from: '2015-01-01'
+- ticker: NVDA
+  company: NVIDIA Corporation
+  sector: Semiconductors
+  valid_from: '2015-01-01'
+- ticker: AMD
+  company: Advanced Micro Devices
+  sector: Semiconductors
+  valid_from: '2015-01-01'
+- ticker: INTC
+  company: Intel Corporation
+  sector: Semiconductors
+  valid_from: '2015-01-01'
+- ticker: QCOM
+  company: Qualcomm Inc.
+  sector: Semiconductors
+  valid_from: '2015-01-01'
+- ticker: AVGO
+  company: Broadcom Inc.
+  sector: Semiconductors
+  valid_from: '2015-01-01'
+- ticker: TXN
+  company: Texas Instruments
+  sector: Semiconductors
+  valid_from: '2015-01-01'
+- ticker: AMAT
+  company: Applied Materials
+  sector: Semiconductors
+  valid_from: '2015-01-01'
+- ticker: MU
+  company: Micron Technology
+  sector: Semiconductors
+  valid_from: '2015-01-01'
+- ticker: SMCI
+  company: Super Micro Computer
+  sector: Semiconductors
+  valid_from: '2015-01-01'
+- ticker: 'ON'
+  company: ON Semiconductor
+  sector: Semiconductors
+  valid_from: '2015-01-01'
+- ticker: MRVL
+  company: Marvell Technology
+  sector: Semiconductors
+  valid_from: '2015-01-01'
+- ticker: MPWR
+  company: Monolithic Power Systems
+  sector: Semiconductors
+  valid_from: '2015-01-01'
+- ticker: LSCC
+  company: Lattice Semiconductor
+  sector: Semiconductors
+  valid_from: '2015-01-01'
+- ticker: ONTO
+  company: Onto Innovation
+  sector: Semiconductors
+  valid_from: '2015-01-01'
+- ticker: MKSI
+  company: MKS Instruments
+  sector: Semiconductors
+  valid_from: '2015-01-01'
+- ticker: ACLS
+  company: Axcelis Technologies
+  sector: Semiconductors
+  valid_from: '2015-01-01'
+- ticker: AMBA
+  company: Ambarella Inc.
+  sector: Semiconductors
+  valid_from: '2015-01-01'
+- ticker: RMBS
+  company: Rambus Inc.
+  sector: Semiconductors
+  valid_from: '2015-01-01'
+- ticker: MRNA
+  company: Moderna Inc.
+  sector: Biotech
+  valid_from: '2018-12-01'
+- ticker: NVAX
+  company: Novavax Inc.
+  sector: Biotech
+  valid_from: '2015-01-01'
+- ticker: AMGN
+  company: Amgen Inc.
+  sector: Biotech
+  valid_from: '2015-01-01'
+- ticker: BMY
+  company: Bristol-Myers Squibb
+  sector: Biotech
+  valid_from: '2015-01-01'
+- ticker: PFE
+  company: Pfizer Inc.
+  sector: Biotech
+  valid_from: '2015-01-01'
+- ticker: MRK
+  company: Merck & Co.
+  sector: Biotech
+  valid_from: '2015-01-01'
+- ticker: ABBV
+  company: AbbVie Inc.
+  sector: Biotech
+  valid_from: '2015-01-01'
+- ticker: LLY
+  company: Eli Lilly and Company
+  sector: Biotech
+  valid_from: '2015-01-01'
+- ticker: TMO
+  company: Thermo Fisher Scientific
+  sector: Biotech
+  valid_from: '2015-01-01'
+- ticker: DHR
+  company: Danaher Corporation
+  sector: Biotech
+  valid_from: '2015-01-01'
+- ticker: BIIB
+  company: Biogen Inc.
+  sector: Biotech
+  valid_from: '2015-01-01'
+- ticker: ALNY
+  company: Alnylam Pharmaceuticals
+  sector: Biotech
+  valid_from: '2015-01-01'
+- ticker: LEGN
+  company: Legend Biotech
+  sector: Biotech
+  valid_from: '2020-06-01'
+- ticker: ARWR
+  company: Arrowhead Pharmaceuticals
+  sector: Biotech
+  valid_from: '2015-01-01'
+- ticker: CRSP
+  company: CRISPR Therapeutics
+  sector: Biotech
+  valid_from: '2016-10-01'
+- ticker: NTLA
+  company: Intellia Therapeutics
+  sector: Biotech
+  valid_from: '2016-05-01'
+- ticker: BEAM
+  company: Beam Therapeutics
+  sector: Biotech
+  valid_from: '2020-02-01'
+- ticker: RARE
+  company: Ultragenyx Pharmaceutical
+  sector: Biotech
+  valid_from: '2015-01-01'
+- ticker: IONS
+  company: Ionis Pharmaceuticals
+  sector: Biotech
+  valid_from: '2015-01-01'
+- ticker: HALO
+  company: Halozyme Therapeutics
+  sector: Biotech
+  valid_from: '2015-01-01'
+- ticker: ACAD
+  company: ACADIA Pharmaceuticals
+  sector: Biotech
+  valid_from: '2015-01-01'
+- ticker: IMVT
+  company: Immunovant Inc.
+  sector: Biotech
+  valid_from: '2019-12-01'
+- ticker: LMT
+  company: Lockheed Martin
+  sector: Defense
+  valid_from: '2015-01-01'
+- ticker: RTX
+  company: RTX Corporation (Raytheon)
+  sector: Defense
+  valid_from: '2015-01-01'
+- ticker: NOC
+  company: Northrop Grumman
+  sector: Defense
+  valid_from: '2015-01-01'
+- ticker: GD
+  company: General Dynamics
+  sector: Defense
+  valid_from: '2015-01-01'
+- ticker: BA
+  company: Boeing Company
+  sector: Defense
+  valid_from: '2015-01-01'
+- ticker: HON
+  company: Honeywell International
+  sector: Defense
+  valid_from: '2015-01-01'
+- ticker: GE
+  company: GE Aerospace
+  sector: Defense
+  valid_from: '2015-01-01'
+- ticker: KTOS
+  company: Kratos Defense & Security
+  sector: Defense
+  valid_from: '2015-01-01'
+- ticker: AVAV
+  company: AeroVironment Inc.
+  sector: Defense
+  valid_from: '2015-01-01'
+- ticker: BWXT
+  company: BWX Technologies
+  sector: Defense
+  valid_from: '2015-01-01'
+- ticker: DRS
+  company: Leonardo DRS Inc.
+  sector: Defense
+  valid_from: '2023-10-01'
+- ticker: SAIC
+  company: Science Applications International
+  sector: Defense
+  valid_from: '2015-01-01'
+- ticker: CACI
+  company: CACI International
+  sector: Defense
+  valid_from: '2015-01-01'
+- ticker: PSN
+  company: Parsons Corporation
+  sector: Defense
+  valid_from: '2019-05-01'
+- ticker: MRCY
+  company: Mercury Systems
+  sector: Defense
+  valid_from: '2015-01-01'
+- ticker: CW
+  company: Curtiss-Wright Corporation
+  sector: Defense
+  valid_from: '2015-01-01'
+- ticker: TXT
+  company: Textron Inc.
+  sector: Defense
+  valid_from: '2015-01-01'
+macro:
+  indices:
+  - ^GSPC
+  - ^IXIC
+  - ^NDX
+  - ^RUT
+  - ^DJI
+  - ^VIX
+  commodities:
+  - CL=F
+  - HG=F
+  - GC=F
+  - SI=F
+  rates:
+  - ZN=F
+  - ZF=F
+  - ZT=F
+  fx:
+  - EURUSD=X
+  - JPY=X
+  - GBPUSD=X

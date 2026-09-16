@@ -25,7 +25,9 @@ Il sistema unisce l'approccio **Quant** (modelli matematici Keras per predire i 
 | `03-ml-pipeline.md` | Pipeline ML & Signal Hybrid | Training su PC (Jupyter), modelli per asset class, ONNX inference + Signal Adjustment |
 | `04-news-llm-pipeline.md` | Notizie & DeepSeek LLM | Ingestione notizie yfinance, prompt strutturato JSON (sentiment, catalyst, rationale) |
 | `05-portfolio-optimization.md` | Ottimizzazione Portafoglio | Pesi long/short, allocazione capitale €5.000 (90% investito, 10% cash) |
-| `06-api-e-webapp.md` | API FastAPI & Webapp Angular | Endpoint REST in sola lettura, UI con schede tesi di investimento |
+| `06-api-and-webapp.md` | API FastAPI & Webapp Angular | Endpoint REST in sola lettura, UI con schede tesi di investimento |
 | `07-operativita-batch.md` | Operatività & Deploy Raspberry | Job CLI, pianificazione cron, guide di installazione nativa |
-| `08-portfolio-lifecycle.md` | Ciclo di Vita del Portafoglio | Giorno 1 (bootstrap), evoluzione giornaliera, Mark-to-Market, gestione universo |
+| `08-portfolio-lifecycle.md` | Ciclo di Vita del Portafoglio | Giorno 1 (bootstrap), evoluzione giornaliera, Mark-to-Market, gestione universo, allocazione long/short |
 | `09-ui-ux-design-system.md` | UI/UX Design System | Estetica "Cyber Light HUD", font futuristiche, palette colori e layout card |
+| `10-simulated-portfolio-value.md` | NAV & P&L Simulato | Tracciamento NAV mark-to-market, riquadri HUD header, reset portafoglio |
+| `11-maintenance-manual.md` | Manuale Operativo | File `.bat` Windows, checklist primo soccorso, procedure di deploy Raspberry Pi |
