@@ -174,7 +174,7 @@ interface PositionSave {
               <div style="display: flex; align-items: flex-end; gap: 0.5rem;">
                 <div>
                   <label style="font-family: 'JetBrains Mono'; font-size: 0.72rem; color: #64748b; display: block; margin-bottom: 0.3rem;">QTY</label>
-                  <input type="number" step="1" min="0" [value]="editQty()"
+                  <input type="number" step="1" [value]="editQty()"
                          (input)="editQty.set(+$any($event.target).value)"
                          style="width: 90px; font-family: 'JetBrains Mono'; font-size: 0.9rem; color: #0f172a; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 0.4rem 0.5rem; text-align: right;">
                 </div>
@@ -520,15 +520,19 @@ export class WatchlistComponent implements OnInit {
 
   saveQty(row: WatchlistRow) {
     const newQty = this.editQty();
-    const action = newQty === 0 ? `Chiudere la posizione ${row.symbol}?` : `Aggiornare ${row.symbol} a QTY ${newQty}?`;
+    const absQty = Math.abs(newQty);
+    const newSide: 'long' | 'short' = newQty < 0 ? 'short' : 'long';
+    const action = newQty === 0
+      ? `Chiudere la posizione ${row.symbol}?`
+      : `${newQty < 0 ? 'SHORT' : 'LONG'} ${row.symbol} QTY ${absQty}?`;
     if (!window.confirm(action)) return;
 
     const otherPositions = this.allPositions().filter((p) => p.instrument_id !== row.instrument_id);
-    if (newQty > 0) {
+    if (newQty !== 0) {
       otherPositions.push({
         instrument_id: row.instrument_id,
-        side: row.side,
-        qty: newQty,
+        side: newSide,
+        qty: absQty,
         avg_price: row.avg_price ?? row.current_price ?? 0,
       });
     }
