@@ -31,6 +31,14 @@ interface PositionSave {
   avg_price: number;
 }
 
+interface PortfolioSummary {
+  nav: number;
+  cash: number;
+  longValue: number;
+  shortValue: number;
+  initialCapital: number;
+}
+
 @Component({
   selector: 'app-watchlist',
   standalone: true,
@@ -50,6 +58,32 @@ interface PositionSave {
            [style.borderLeft]="status()?.ok ? '4px solid #16a34a' : '4px solid #dc2626'">
         <span style="font-family: 'JetBrains Mono'; font-size: 0.85rem;"
               [style.color]="status()?.ok ? '#16a34a' : '#dc2626'">{{ status()?.message }}</span>
+      </div>
+
+      <!-- Portfolio summary -->
+      <div class="portfolio-summary">
+        <div class="summary-item">
+          <div class="summary-label">SALDO</div>
+          <div class="summary-value">{{ formatSummaryValue(summary().nav) }}</div>
+          <div class="summary-detail">cash + long + short</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">CASH</div>
+          <div class="summary-value">{{ formatSummaryValue(summary().cash) }}</div>
+        </div>
+        <div class="summary-item summary-long">
+          <div class="summary-label">LONG</div>
+          <div class="summary-value">{{ formatSummaryValue(summary().longValue) }}</div>
+        </div>
+        <div class="summary-item summary-short">
+          <div class="summary-label">SHORT</div>
+          <div class="summary-value">{{ formatSummaryValue(summary().shortValue) }}</div>
+        </div>
+        <div class="summary-item" [class.pnl-pos]="pnlFromInitial() > 0" [class.pnl-neg]="pnlFromInitial() < 0">
+          <div class="summary-label">P&amp;L DA INIZIO</div>
+          <div class="summary-value">{{ formatSignedSummaryValue(pnlFromInitial()) }}</div>
+          <div class="summary-detail">vs {{ formatSummaryValue(summary().initialCapital) }}</div>
+        </div>
       </div>
 
       <!-- Add ticker -->
@@ -223,6 +257,38 @@ interface PositionSave {
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
+    .portfolio-summary {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+    .summary-item {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-left: 3px solid #94a3b8;
+      padding: 0.8rem 0.9rem;
+      min-width: 0;
+    }
+    .summary-long { border-left-color: #16a34a; }
+    .summary-short { border-left-color: #dc2626; }
+    .summary-label, .summary-detail {
+      font-family: 'JetBrains Mono';
+      font-size: 0.65rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .summary-value {
+      margin-top: 0.35rem;
+      font-family: 'JetBrains Mono';
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #0f172a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .summary-detail { margin-top: 0.2rem; text-transform: none; letter-spacing: 0; }
     .wl-row {
       display: grid;
       grid-template-columns: 1fr 75px 48px 70px 110px 110px 110px 110px;
@@ -318,6 +384,7 @@ interface PositionSave {
       background: #e2e8f0;
     }
     @media (max-width: 700px) {
+      .portfolio-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .wl-header-row, .wl-row {
         grid-template-columns: 1fr 75px 48px 60px 90px 90px;
       }
@@ -333,6 +400,7 @@ interface PositionSave {
 export class WatchlistComponent implements OnInit {
   rows = signal<WatchlistRow[]>([]);
   allPositions = signal<PositionSave[]>([]);
+  summary = signal<PortfolioSummary>({ nav: 0, cash: 0, longValue: 0, shortValue: 0, initialCapital: 5000 });
   expandedId = signal<number | null>(null);
   editQty = signal(0);
   loading = signal(false);
@@ -355,6 +423,21 @@ export class WatchlistComponent implements OnInit {
       recommendations: this.api.getLatestRecommendations('main').pipe(catchError(() => of(null))),
     }).subscribe({
       next: ({ watchlist, holdings, recommendations }) => {
+        const positions = holdings?.positions || [];
+        const longValue = positions
+          .filter((p: any) => p.side === 'long')
+          .reduce((total: number, p: any) => total + Math.abs(Number(p.market_value) || 0), 0);
+        const shortValue = positions
+          .filter((p: any) => p.side === 'short')
+          .reduce((total: number, p: any) => total - Math.abs(Number(p.market_value) || 0), 0);
+        this.summary.set({
+          nav: Number(holdings?.nav) || 0,
+          cash: Number(holdings?.cash_balance) || 0,
+          longValue,
+          shortValue,
+          initialCapital: Number(holdings?.initial_capital) || 5000,
+        });
+
         const posMap = new Map<number, PositionSave>();
         for (const p of (holdings?.positions || [])) {
           posMap.set(p.instrument_id, {
@@ -437,6 +520,18 @@ export class WatchlistComponent implements OnInit {
     const val = this.pnl(row);
     const sign = val >= 0 ? '+' : '';
     return `${sign}$${val.toFixed(2)}`;
+  }
+
+  pnlFromInitial(): number {
+    return this.summary().nav - this.summary().initialCapital;
+  }
+
+  formatSummaryValue(value: number): string {
+    return `€${value.toFixed(2)}`;
+  }
+
+  formatSignedSummaryValue(value: number): string {
+    return `${value >= 0 ? '+' : '-'}€${Math.abs(value).toFixed(2)}`;
   }
 
   areaLabel(area: string): string {
