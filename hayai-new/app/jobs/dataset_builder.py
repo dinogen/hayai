@@ -177,6 +177,31 @@ def split_by_cutoffs(clean_df: pd.DataFrame, train_end: str, val_end: str) -> tu
     return train_mask, val_mask, test_mask
 
 
+def _apply_train_only_preprocessing(frame: pd.DataFrame, feature_cols: list[str], train_mask) -> pd.DataFrame:
+    """Winzorize each feature using bounds computed only from the training rows.
+
+    This is the critical leakage guard for chronological evaluation: validation/test rows
+    must never participate in the fit of the feature clipping thresholds.
+    """
+    processed = frame.copy()
+    if isinstance(train_mask, pd.Series):
+        train_mask = train_mask.to_numpy(dtype=bool)
+    if not isinstance(train_mask, np.ndarray):
+        train_mask = np.asarray(train_mask, dtype=bool)
+
+    if processed.empty or not np.any(train_mask):
+        raise ValueError("Cannot compute train-only preprocessing on an empty or all-false training mask.")
+
+    train_values = processed.loc[train_mask, feature_cols]
+    if train_values.empty:
+        raise ValueError("No rows available for training-only feature clipping.")
+
+    lo = train_values.quantile(WINSOR_QUANTILE)
+    hi = train_values.quantile(1 - WINSOR_QUANTILE)
+    processed[feature_cols] = processed[feature_cols].clip(lo, hi, axis=1)
+    return processed
+
+
 def read_model_config(artifact_path) -> dict:
     """Read the model config.json (feature_columns, split, cutoffs...)."""
     p = Path(artifact_path) / "config.json"
@@ -192,6 +217,9 @@ def build_training_dataset() -> tuple:
     Returns (clean_df, feature_cols, mins, maxs, label_min, label_max) where
     clean_df contains symbol, trade_date, winsorized features and target; mins/maxs are the
     per-feature min/max series and label_min/label_max the target extremes.
+
+    The train-only winsorization is performed by callers using a training mask; this helper
+    keeps the dataset free of leakage before the split is applied.
     """
     raw_df = build_raw_df()
     if raw_df.empty:
@@ -209,12 +237,8 @@ def build_training_dataset() -> tuple:
         logger.error("Clean dataset is empty after dropping NaNs.")
         return None
 
+    # Do not winsorize globally before split: bounds must be fit on train only.
     X = clean_df[FEATURE_COLS]
-    lo = X.quantile(WINSOR_QUANTILE)
-    hi = X.quantile(1 - WINSOR_QUANTILE)
-    clean_df[FEATURE_COLS] = X.clip(lo, hi, axis=1)
-    X = clean_df[FEATURE_COLS]
-
     mins = X.min()
     maxs = X.max()
     label_min = float(clean_df['target'].min())
