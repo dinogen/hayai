@@ -85,8 +85,7 @@ interface PositionSave {
           <div>COMPARTO</div>
           <div style="text-align: center;">SIG</div>
           <div class="col-num">QTY</div>
-          <div class="col-num">CARICO</div>
-          <div class="col-num">ATTUALE</div>
+          <div class="col-num">CARICO / ATT.</div>
           <div class="col-num">VALORE</div>
           <div class="col-num">P&amp;L</div>
         </div>
@@ -108,14 +107,14 @@ interface PositionSave {
                 <span style="font-weight: 800; color: #4d7c0f; font-family: 'JetBrains Mono'; font-size: 0.95rem;">{{ row.symbol }}</span>
                 <span style="display: block; font-size: 0.7rem; color: #94a3b8; font-family: 'Rajdhani';">{{ row.name || row.instrument_type }}</span>
               </div>
+            </div>
+            <!-- Comparto + Side -->
+            <div style="display: flex; flex-direction: column; gap: 0.25rem; overflow: hidden; justify-content: center;">
               <span *ngIf="row.qty > 0" class="side-badge"
                     [class.side-long]="row.side === 'long'"
                     [class.side-short]="row.side === 'short'">
                 {{ row.side | uppercase }}
               </span>
-            </div>
-            <!-- Comparto -->
-            <div style="overflow: hidden;">
               <span style="font-family: 'JetBrains Mono'; font-size: 0.65rem; font-weight: 700; padding: 0.15rem 0.4rem; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; max-width: 100%; background: #f1f5f9; color: #334155;">
                 {{ row.sector ?? row.instrument_type ?? '—' }}
               </span>
@@ -126,8 +125,10 @@ interface PositionSave {
               {{ signalIcon(row.final_signal) }}
             </div>
             <div class="col-num mono">{{ row.qty }}</div>
-            <div class="col-num mono">{{ row.avg_price != null ? ('$' + (row.avg_price | number:'1.2-2')) : '—' }}</div>
-            <div class="col-num mono">{{ row.current_price != null ? ('$' + (row.current_price | number:'1.2-2')) : '—' }}</div>
+            <div class="col-num" style="display: flex; flex-direction: column; gap: 0.15rem;">
+              <span class="mono">{{ row.avg_price != null ? ('$' + (row.avg_price | number:'1.2-2')) : '—' }}</span>
+              <span class="mono" style="color: #64748b;">{{ row.current_price != null ? ('$' + (row.current_price | number:'1.2-2')) : '—' }}</span>
+            </div>
             <div class="col-num mono">{{ formatValue(row) }}</div>
             <div class="col-num mono" [class.pnl-pos]="pnl(row) > 0" [class.pnl-neg]="pnl(row) < 0">{{ formatPnl(row) }}</div>
           </div>
@@ -212,7 +213,7 @@ interface PositionSave {
   styles: [`
     .wl-header-row {
       display: grid;
-      grid-template-columns: 1fr 75px 48px 70px 110px 110px 110px 110px;
+      grid-template-columns: 1fr 85px 48px 70px 110px 110px 110px;
       padding: 0.6rem 1.25rem;
       background: #f8fafc;
       border-bottom: 2px solid #e2e8f0;
@@ -225,7 +226,7 @@ interface PositionSave {
     }
     .wl-row {
       display: grid;
-      grid-template-columns: 1fr 75px 48px 70px 110px 110px 110px 110px;
+      grid-template-columns: 1fr 85px 48px 70px 110px 110px 110px;
       padding: 0.75rem 1.25rem;
       cursor: pointer;
       align-items: center;
@@ -319,7 +320,7 @@ interface PositionSave {
     }
     @media (max-width: 700px) {
       .wl-header-row, .wl-row {
-        grid-template-columns: 1fr 75px 48px 60px 90px 90px;
+        grid-template-columns: 1fr 80px 40px 60px 90px 90px;
       }
       .wl-header-row .col-num:nth-child(6),
       .wl-header-row .col-num:nth-child(7),

@@ -17,11 +17,6 @@ import { RouterLink } from '@angular/router';
             <h1 class="font-display" style="font-size: 2rem; font-weight: 800; color: #0f172a; margin-top: 0.5rem; margin-bottom: 0.25rem;">PORTAFOGLIO PRINCIPALE</h1>
             <p style="font-family: 'Rajdhani'; font-size: 1.15rem; color: #64748b; margin: 0;">Capitale Iniziale: <strong style="font-family: 'JetBrains Mono'; color: #0f172a;">€5,000.00</strong> (90% Target Investito)</p>
           </div>
-          <div>
-            <a routerLink="/recommendations" class="btn-cyber" style="display: inline-block; text-decoration: none;">
-              Revisione Martedì →
-            </a>
-          </div>
         </div>
       </article>
 
